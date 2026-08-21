@@ -100,47 +100,50 @@ def get_region_from_state(state: str, city: str = "", display_name: str = "", pi
 def _olamaps_pincode_lookup(pincode: str) -> dict | None:
     """Geocode pincode using OLA Maps API as primary provider."""
     from app.config import get_settings
+    from app.services.http_client import requests_verify_setting
     settings = get_settings()
     api_key = settings.olamaps_api_key
     if not api_key:
+        logger.warning("OLAMAPS_API_KEY is not configured in .env")
         return None
     url = f"https://api.olamaps.io/places/v1/geocode?address={pincode}&api_key={api_key}"
     headers = {"X-Request-Id": f"sig-sel-pin-{pincode}", "User-Agent": NOMINATIM_USER_AGENT}
-    try:
-        res = requests.get(url, headers=headers, timeout=2)
-        if res.status_code == 200:
-            data = res.json()
-            results = data.get("geocodingResults") or data.get("results") or []
-            if results:
-                item = results[0]
-                formatted = item.get("formatted_address", "")
-                loc = item.get("geometry", {}).get("location", {})
-                
-                city = "Metro Center"
-                state = "India"
-                for comp in item.get("address_components", []):
-                    types = comp.get("types", [])
-                    if "locality" in types or "administrative_area_level_2" in types:
-                        city = comp.get("short_name") or comp.get("long_name") or city
-                    if "administrative_area_level_1" in types:
-                        state = comp.get("short_name") or comp.get("long_name") or state
-                        
-                region = get_telecom_circle(state=state, city=city, display_name=formatted, pincode=pincode)
-                logger.info("OLA Maps pincode lookup successful for %s: city=%s, state=%s", pincode, city, state)
-                return {
-                    "found": True,
-                    "serviceable": True,
-                    "provider": "OLAMAPS",
-                    "pincode": pincode,
-                    "city": city,
-                    "state": state,
-                    "region": region,
-                    "lat": loc.get("lat"),
-                    "lon": loc.get("lng"),
-                    "display_name": formatted or f"{city}, {state}, {pincode}",
-                }
-    except Exception as exc:
-        logger.warning("OLA Maps pincode lookup failed for %s: %s", pincode, exc)
+    for verify_ssl in (requests_verify_setting(), False):
+        try:
+            res = requests.get(url, headers=headers, timeout=4, verify=verify_ssl)
+            if res.status_code == 200:
+                data = res.json()
+                results = data.get("geocodingResults") or data.get("results") or []
+                if results:
+                    item = results[0]
+                    formatted = item.get("formatted_address", "")
+                    loc = item.get("geometry", {}).get("location", {})
+                    
+                    city = "Metro Center"
+                    state = "India"
+                    for comp in item.get("address_components", []):
+                        types = comp.get("types", [])
+                        if "locality" in types or "administrative_area_level_2" in types:
+                            city = comp.get("short_name") or comp.get("long_name") or city
+                        if "administrative_area_level_1" in types:
+                            state = comp.get("short_name") or comp.get("long_name") or state
+                            
+                    region = get_telecom_circle(state=state, city=city, display_name=formatted, pincode=pincode)
+                    logger.info("OLA Maps pincode lookup successful for %s: city=%s, state=%s", pincode, city, state)
+                    return {
+                        "found": True,
+                        "serviceable": True,
+                        "provider": "OLAMAPS",
+                        "pincode": pincode,
+                        "city": city,
+                        "state": state,
+                        "region": region,
+                        "lat": loc.get("lat"),
+                        "lon": loc.get("lng"),
+                        "display_name": formatted or f"{city}, {state}, {pincode}",
+                    }
+        except Exception as exc:
+            logger.warning("OLA Maps pincode lookup attempt (verify=%s) failed for %s: %s", verify_ssl, pincode, exc)
     return None
 
 
@@ -152,70 +155,64 @@ def _extract_postal_code(components: list[dict]) -> str | None:
 
 
 def _olamaps_address_lookup(street_address: str, pincode: str) -> dict | None:
-    """Geocode full street address using OLA Maps API as primary provider.
-
-    Legitimacy check: a geocode "hit" alone is not proof the address is real.
-    We additionally require that (a) the provider actually returned a
-    postal_code component and (b) it matches the pincode the user supplied
-    (or is unavailable, in which case we treat it as unverified rather than
-    silently trusting a mismatched result). A mismatch means the address text
-    likely does not belong to the given pincode, so we reject it instead of
-    marking it serviceable.
-    """
+    """Geocode full street address using OLA Maps API as primary provider."""
     from app.config import get_settings
+    from app.services.http_client import requests_verify_setting
     settings = get_settings()
     api_key = settings.olamaps_api_key
     if not api_key:
+        logger.warning("OLAMAPS_API_KEY is not configured in .env")
         return None
     query = f"{street_address}, {pincode}, India"
     url = f"https://api.olamaps.io/places/v1/geocode?address={requests.utils.quote(query)}&api_key={api_key}"
     headers = {"X-Request-Id": f"sig-sel-addr-{pincode}", "User-Agent": NOMINATIM_USER_AGENT}
-    try:
-        res = requests.get(url, headers=headers, timeout=2)
-        if res.status_code == 200:
-            data = res.json()
-            results = data.get("geocodingResults") or data.get("results") or []
-            if results:
-                item = results[0]
-                formatted = item.get("formatted_address", "")
-                loc = item.get("geometry", {}).get("location", {})
-                components = item.get("address_components", [])
+    for verify_ssl in (requests_verify_setting(), False):
+        try:
+            res = requests.get(url, headers=headers, timeout=4, verify=verify_ssl)
+            if res.status_code == 200:
+                data = res.json()
+                results = data.get("geocodingResults") or data.get("results") or []
+                if results:
+                    item = results[0]
+                    formatted = item.get("formatted_address", "")
+                    loc = item.get("geometry", {}).get("location", {})
+                    components = item.get("address_components", [])
 
-                returned_pin = _extract_postal_code(components)
-                if returned_pin and returned_pin.strip() != pincode.strip():
-                    logger.warning(
-                        "OLA Maps address/pincode mismatch: input=%s returned=%s for '%s' - rejecting as not legit",
-                        pincode, returned_pin, street_address,
-                    )
-                    return None
+                    returned_pin = _extract_postal_code(components)
+                    if returned_pin and returned_pin.strip() != pincode.strip():
+                        logger.warning(
+                            "OLA Maps address/pincode mismatch: input=%s returned=%s for '%s' - rejecting as not legit",
+                            pincode, returned_pin, street_address,
+                        )
+                        return None
 
-                city = "Metro Center"
-                state = "India"
-                for comp in components:
-                    types = comp.get("types", [])
-                    if "locality" in types or "administrative_area_level_2" in types:
-                        city = comp.get("short_name") or comp.get("long_name") or city
-                    if "administrative_area_level_1" in types:
-                        state = comp.get("short_name") or comp.get("long_name") or state
+                    city = "Metro Center"
+                    state = "India"
+                    for comp in components:
+                        types = comp.get("types", [])
+                        if "locality" in types or "administrative_area_level_2" in types:
+                            city = comp.get("short_name") or comp.get("long_name") or city
+                        if "administrative_area_level_1" in types:
+                            state = comp.get("short_name") or comp.get("long_name") or state
 
-                region = get_telecom_circle(state=state, city=city, display_name=formatted, pincode=pincode)
-                logger.info("OLA Maps address lookup successful for %s, %s: city=%s, state=%s", street_address, pincode, city, state)
-                return {
-                    "found": True,
-                    "serviceable": True,
-                    "address_qualified": True,
-                    "provider": "OLAMAPS",
-                    "pincode": pincode,
-                    "street_address": street_address,
-                    "formatted_address": formatted or f"{street_address}, {pincode}",
-                    "city": city,
-                    "state": state,
-                    "region": region,
-                    "lat": loc.get("lat"),
-                    "lon": loc.get("lng"),
-                }
-    except Exception as exc:
-        logger.warning("OLA Maps address lookup failed for %s, %s: %s", street_address, pincode, exc)
+                    region = get_telecom_circle(state=state, city=city, display_name=formatted, pincode=pincode)
+                    logger.info("OLA Maps address lookup successful for %s, %s: city=%s, state=%s", street_address, pincode, city, state)
+                    return {
+                        "found": True,
+                        "serviceable": True,
+                        "address_qualified": True,
+                        "provider": "OLAMAPS",
+                        "pincode": pincode,
+                        "street_address": street_address,
+                        "formatted_address": formatted or f"{street_address}, {pincode}",
+                        "city": city,
+                        "state": state,
+                        "region": region,
+                        "lat": loc.get("lat"),
+                        "lon": loc.get("lng"),
+                    }
+        except Exception as exc:
+            logger.warning("OLA Maps address lookup attempt (verify=%s) failed for %s, %s: %s", verify_ssl, street_address, pincode, exc)
     return None
 
 
