@@ -1,0 +1,550 @@
+{
+  "circles": {
+    "Delhi NCR": [
+      {
+        "plan_id": "PLN-DELHI-100",
+        "name": "Capital Express 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps NCR Speed with SonyLIV + Zee5 + Hotstar."
+      },
+      {
+        "plan_id": "PLN-DELHI-300",
+        "name": "Delhi Metro Speed 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Ultra Low Latency with Prime Video + Hotstar."
+      },
+      {
+        "plan_id": "PLN-DELHI-1G",
+        "name": "NCR Giga Extreme 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Executive Giga Speed with Netflix & All OTTs."
+      }
+    ],
+    "Mumbai": [
+      {
+        "plan_id": "PLN-MUMBAI-100",
+        "name": "Financial Hub Starter 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Mumbai Speed with Hotstar + SonyLIV."
+      },
+      {
+        "plan_id": "PLN-MUMBAI-300",
+        "name": "Max City Fiber 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Dedicated Fiber with Prime Video + Zee5."
+      },
+      {
+        "plan_id": "PLN-MUMBAI-1G",
+        "name": "Mumbai Giga Ultra 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Premium Mumbai Fiber with Netflix VIP & Hotstar."
+      }
+    ],
+    "Bengaluru": [
+      {
+        "plan_id": "PLN-BLR-100",
+        "name": "Silicon Valley Starter 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Tech Fiber with SunNXT + Hotstar."
+      },
+      {
+        "plan_id": "PLN-BLR-300",
+        "name": "Techie Turbo 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Developer Speed with SonyLIV + Hotstar."
+      },
+      {
+        "plan_id": "PLN-BLR-1G",
+        "name": "Namma Giga 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Namma Giga Fiber with Full OTT Bundle & VIP Support."
+      }
+    ],
+    "Hyderabad": [
+      {
+        "plan_id": "PLN-HYD-100",
+        "name": "Cyberabad Connect 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Pearl City Speed with Aha + Disney+ Hotstar."
+      },
+      {
+        "plan_id": "PLN-HYD-300",
+        "name": "Charminar Giga Speed 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps High Speed with Aha + SonyLIV."
+      },
+      {
+        "plan_id": "PLN-HYD-1G",
+        "name": "Hyderabad Giga Ultra 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Ultra Fiber with All OTT Perks."
+      }
+    ],
+    "Chennai": [
+      {
+        "plan_id": "PLN-CHN-100",
+        "name": "Singara Chennai 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Fiber with SunNXT + Disney+ Hotstar for Chennai Circle."
+      },
+      {
+        "plan_id": "PLN-CHN-300",
+        "name": "Marina Fiber Speed 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Ultra Low Latency with SunNXT + SonyLIV."
+      },
+      {
+        "plan_id": "PLN-CHN-1G",
+        "name": "Chennai Giga Super 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Giga Speed with VIP Regional Support & All OTTs."
+      }
+    ],
+    "Kolkata": [
+      {
+        "plan_id": "PLN-KOL-100",
+        "name": "City of Joy 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Kolkata Fiber with Hoichoi + Zee5."
+      },
+      {
+        "plan_id": "PLN-KOL-300",
+        "name": "Howrah Turbo 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Express Speed with Hoichoi + Hotstar."
+      },
+      {
+        "plan_id": "PLN-KOL-1G",
+        "name": "Kolkata Giga Express 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Giga Speed with Full Regional OTT Bundle."
+      }
+    ],
+    "Maharashtra & Goa": [
+      {
+        "plan_id": "PLN-MH-100",
+        "name": "Sahyadri Connect 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps State Fiber with Planet Marathi + Hotstar."
+      },
+      {
+        "plan_id": "PLN-MH-300",
+        "name": "Western Ghats Speed 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps High Speed with Zee5 + SonyLIV."
+      },
+      {
+        "plan_id": "PLN-MH-1G",
+        "name": "Maharashtra Giga 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Giga Speed with Full OTT Bundle."
+      }
+    ],
+    "Gujarat": [
+      {
+        "plan_id": "PLN-GUJ-100",
+        "name": "Garvi Gujarat 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Gujarat Connect with ShemarooMe + Hotstar."
+      },
+      {
+        "plan_id": "PLN-GUJ-300",
+        "name": "Sabarmati Turbo 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Fiber with SonyLIV + Zee5."
+      },
+      {
+        "plan_id": "PLN-GUJ-1G",
+        "name": "Gujarat Giga Max 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Ultra Giga with VIP Support & All OTTs."
+      }
+    ],
+    "Andhra Pradesh & Telangana": [
+      {
+        "plan_id": "PLN-APTL-100",
+        "name": "Telugu Connect 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Fiber with Aha + Disney+ Hotstar."
+      },
+      {
+        "plan_id": "PLN-APTL-300",
+        "name": "Deccan Fiber 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps High Speed with Aha + Zee5."
+      },
+      {
+        "plan_id": "PLN-APTL-1G",
+        "name": "Andhra Giga Ultra 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Ultra Speed with All OTTs."
+      }
+    ],
+    "Karnataka": [
+      {
+        "plan_id": "PLN-KAR-100",
+        "name": "Karavali Connect 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps State Fiber with SunNXT + Hotstar."
+      },
+      {
+        "plan_id": "PLN-KAR-300",
+        "name": "Karnataka Turbo 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Express Speed with SonyLIV + Hotstar."
+      },
+      {
+        "plan_id": "PLN-KAR-1G",
+        "name": "Karnataka Giga Extreme 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Extreme Giga with All OTTs."
+      }
+    ],
+    "Tamil Nadu": [
+      {
+        "plan_id": "PLN-TN-100",
+        "name": "Tamil Super Fiber 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Fiber with SunNXT + Hotstar."
+      },
+      {
+        "plan_id": "PLN-TN-300",
+        "name": "Kongu Speed 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Fiber with SunNXT + Zee5."
+      },
+      {
+        "plan_id": "PLN-TN-1G",
+        "name": "Tamil Nadu Giga 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Giga Speed with All Regional OTTs."
+      }
+    ],
+    "Kerala": [
+      {
+        "plan_id": "PLN-KER-100",
+        "name": "God's Own Fiber 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Kerala Connect with ManoramaMAX + Hotstar."
+      },
+      {
+        "plan_id": "PLN-KER-300",
+        "name": "Malabar Turbo 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps High Speed with SonyLIV + Hotstar."
+      },
+      {
+        "plan_id": "PLN-KER-1G",
+        "name": "Kerala Giga Extreme 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Extreme Speed with All OTT Perks."
+      }
+    ],
+    "Punjab & Haryana": [
+      {
+        "plan_id": "PLN-PNHR-100",
+        "name": "Bhangra Speed 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Regional Speed with Chaupal + Zee5."
+      },
+      {
+        "plan_id": "PLN-PNHR-300",
+        "name": "Five Rivers Fiber 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps High Speed with Chaupal + Hotstar."
+      },
+      {
+        "plan_id": "PLN-PNHR-1G",
+        "name": "Punjab Giga Super 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Super Fiber with All OTTs."
+      }
+    ],
+    "UP East": [
+      {
+        "plan_id": "PLN-UPE-100",
+        "name": "Purvanchal Connect 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps East UP Fiber with Zee5 + SonyLIV."
+      },
+      {
+        "plan_id": "PLN-UPE-300",
+        "name": "Awadh Fiber 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Express Speed with Hotstar + SonyLIV."
+      },
+      {
+        "plan_id": "PLN-UPE-1G",
+        "name": "UP East Giga 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Giga Speed with All Regional OTTs."
+      }
+    ],
+    "UP West": [
+      {
+        "plan_id": "PLN-UPW-100",
+        "name": "Western UP Express 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps West UP Connect with SonyLIV + Hotstar."
+      },
+      {
+        "plan_id": "PLN-UPW-300",
+        "name": "Dooab Speed 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Fiber with Prime Video + Zee5."
+      },
+      {
+        "plan_id": "PLN-UPW-1G",
+        "name": "UP West Giga Extreme 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Giga Speed with Full OTT Bundle."
+      }
+    ],
+    "Rajasthan": [
+      {
+        "plan_id": "PLN-RAJ-100",
+        "name": "Desert Connect 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Rajasthan Fiber with Stage + Zee5."
+      },
+      {
+        "plan_id": "PLN-RAJ-300",
+        "name": "Pink City Turbo 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps High Speed with Hotstar + SonyLIV."
+      },
+      {
+        "plan_id": "PLN-RAJ-1G",
+        "name": "Rajputana Giga 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Giga Speed with All OTTs."
+      }
+    ],
+    "West Bengal & Sikkim": [
+      {
+        "plan_id": "PLN-WBSK-100",
+        "name": "Himalayan Connect 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Zonal Fiber with Hoichoi + Zee5."
+      },
+      {
+        "plan_id": "PLN-WBSK-300",
+        "name": "Teesta Fiber 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Express Speed with Hoichoi + Hotstar."
+      },
+      {
+        "plan_id": "PLN-WBSK-1G",
+        "name": "Bengal Giga Super 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Giga Fiber with All OTT Perks."
+      }
+    ],
+    "Bihar & Jharkhand": [
+      {
+        "plan_id": "PLN-BHJH-100",
+        "name": "Pataliputra Express 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Zonal Speed with Zee5 + SonyLIV."
+      },
+      {
+        "plan_id": "PLN-BHJH-300",
+        "name": "Chota Nagpur Fiber 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Fiber with Hotstar + Zee5."
+      },
+      {
+        "plan_id": "PLN-BHJH-1G",
+        "name": "Bihar Giga Ultra 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Ultra Speed with All Regional OTTs."
+      }
+    ],
+    "Odisha": [
+      {
+        "plan_id": "PLN-OD-100",
+        "name": "Kalinga Connect 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Odisha Fiber with Kanchhanka + Zee5."
+      },
+      {
+        "plan_id": "PLN-OD-300",
+        "name": "Utkal Speed 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps High Speed with Hotstar + SonyLIV."
+      },
+      {
+        "plan_id": "PLN-OD-1G",
+        "name": "Odisha Giga Extreme 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Extreme Giga with All OTTs."
+      }
+    ],
+    "North East & Assam": [
+      {
+        "plan_id": "PLN-NEA-100",
+        "name": "Brahmaputra Speed 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps NE Connect with ReelDrama + Hotstar."
+      },
+      {
+        "plan_id": "PLN-NEA-300",
+        "name": "Seven Sisters Fiber 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps Express Speed with SonyLIV + Hotstar."
+      },
+      {
+        "plan_id": "PLN-NEA-1G",
+        "name": "North East Giga 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Giga Speed with All OTTs."
+      }
+    ],
+    "MP & Chhattisgarh": [
+      {
+        "plan_id": "PLN-MPCG-100",
+        "name": "Heartland Connect 100M",
+        "speed_mbps": 100,
+        "price_inr": 499,
+        "type": "fiber",
+        "reason": "100 Mbps Central Connect with Zee5 + SonyLIV."
+      },
+      {
+        "plan_id": "PLN-MPCG-300",
+        "name": "Narmada Turbo 300M",
+        "speed_mbps": 300,
+        "price_inr": 799,
+        "type": "fiber",
+        "reason": "300 Mbps High Speed with Hotstar + SonyLIV."
+      },
+      {
+        "plan_id": "PLN-MPCG-1G",
+        "name": "MP Giga Super 1G",
+        "speed_mbps": 1000,
+        "price_inr": 1499,
+        "type": "fiber",
+        "reason": "1 Gbps Super Fiber with All OTT Perks."
+      }
+    ]
+  }
+}

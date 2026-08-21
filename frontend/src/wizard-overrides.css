@@ -1,0 +1,276 @@
+.serviceable{display:flex;align-items:center;gap:12px;padding:16px;margin-top:18px;background:#effbf5;border:1px solid #d4f2e2;border-radius:14px;color:#348b6b}.serviceable>div{display:flex;flex:1;flex-direction:column;gap:3px}.serviceable strong{font-size:13px}.serviceable span{font-size:11px}.serviceable>.wizard-button{padding:9px 11px;font-size:10px}@media(max-width:520px){.serviceable{align-items:flex-start;flex-wrap:wrap}.serviceable>.wizard-button{width:auto}}
+.chat-customer-form{margin:0 22px 16px;padding:16px;border:1px solid #fee2e2;border-radius:16px;background:linear-gradient(135deg,#fff0f1,#ffffff);box-shadow:0 10px 28px rgba(227,27,35,0.06)}.customer-form-title{display:flex;align-items:center;gap:8px;color:#B80E16;font-size:13px;font-weight:700}.customer-form-title svg{color:#E31B23}.chat-customer-form>p{margin:6px 0 13px;color:#6b7280;font-size:11px}.customer-form-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.customer-form-fields label{display:flex;flex-direction:column;gap:5px;color:#374151;font-size:10px;font-weight:700}.customer-form-fields input{min-width:0;border:1px solid #e5e7eb;border-radius:10px;background:#fff;padding:10px;font:inherit;color:#111827;outline:none}.customer-form-fields input:focus{border-color:#E31B23;box-shadow:0 0 0 3px rgba(227,27,35,0.12)}.customer-submit{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:13px;margin-left:auto;border:0;border-radius:10px;background:linear-gradient(100deg,#E31B23,#C4121A);color:#fff;padding:10px 13px;font:700 11px 'DM Sans';cursor:pointer}.customer-submit:disabled{opacity:.48;cursor:not-allowed}@media(max-width:620px){.chat-customer-form{margin:0 14px 14px}.customer-form-fields{grid-template-columns:1fr}.customer-submit{width:100%}}
+
+/* Prodapt Red & White Theme Overrides */
+.red-btn, .wizard-button.red-btn, button.red-btn {
+  background: linear-gradient(100deg, #E31B23, #C4121A) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(227, 27, 35, 0.25) !important;
+}
+.red-btn:hover, .wizard-button.red-btn:hover, button.red-btn:hover {
+  background: linear-gradient(100deg, #C4121A, #B80E16) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 18px rgba(227, 27, 35, 0.35) !important;
+}
+.red-brand {
+  background: linear-gradient(135deg, #E31B23, #B80E16) !important;
+  box-shadow: 0 8px 18px rgba(227, 27, 35, 0.3) !important;
+}
+.red-dot {
+  color: #E31B23 !important;
+}
+.green-dot {
+  background: #10B981 !important;
+  box-shadow: 0 0 0 4px #D1FAE5 !important;
+}
+.red-eyebrow {
+  color: #E31B23 !important;
+}
+.red-icon {
+  background: #FFF0F1 !important;
+  color: #E31B23 !important;
+}
+.dark-icon {
+  background: #F3F4F6 !important;
+  color: #1F2937 !important;
+}
+.red-note {
+  color: #4B5563 !important;
+}
+.red-note svg {
+  color: #E31B23 !important;
+}
+.red-badge {
+  background: #FFF0F1 !important;
+  color: #E31B23 !important;
+  border: 1px solid #FEE2E2 !important;
+}
+.red-badge span {
+  background: #E31B23 !important;
+}
+.red-hover:hover {
+  border-color: #E31B23 !important;
+  box-shadow: 0 12px 25px rgba(227, 27, 35, 0.12) !important;
+}
+
+/* User & Assistant Message Bubbles in Prodapt Theme */
+.other-message {
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 10px !important;
+  margin-bottom: 16px !important;
+  width: 100% !important;
+}
+
+.other-message.user {
+  flex-direction: row-reverse !important;
+}
+
+.other-message > span {
+  background: #E31B23 !important;
+  color: #ffffff !important;
+  flex: none !important;
+}
+
+.other-message.user > span {
+  background: #FEE2E2 !important;
+  color: #E31B23 !important;
+}
+
+.message-content {
+  display: flex !important;
+  flex-direction: column !important;
+  max-width: 80% !important;
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+  width: fit-content !important;
+  padding: 12px 18px !important;
+  border-radius: 16px 16px 16px 4px !important;
+  background: #F4F5F8 !important;
+  color: #1F2937 !important;
+  border: 1px solid #E5E7EB !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  box-sizing: border-box !important;
+}
+
+.other-message.user .message-content {
+  align-items: flex-start !important;
+  background: #E31B23 !important;
+  color: #ffffff !important;
+  border-color: #E31B23 !important;
+  border-radius: 16px 16px 4px 16px !important;
+}
+
+.other-message p,
+.message-content p {
+  width: fit-content !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  border: none !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  letter-spacing: 0.2px !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  overflow: visible !important;
+  height: auto !important;
+  box-sizing: border-box !important;
+}
+
+.other-message.user p,
+.other-message.user .message-content p {
+  background: transparent !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.bubble, .qa-message {
+  width: fit-content !important;
+  max-width: 80% !important;
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  overflow: visible !important;
+  height: auto !important;
+  box-sizing: border-box !important;
+}
+
+
+.landing-copy h1 em {
+  color: #E31B23 !important;
+}
+.trust-row svg {
+  color: #E31B23 !important;
+}
+
+/* Fix chat composer input truncation/overflow */
+.other-composer {
+  display: flex !important;
+  gap: 10px !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  padding: 14px 22px !important;
+}
+.other-composer input, .wizard-form input, .plan-qa input {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+  padding-left: 16px !important;
+  padding-right: 22px !important;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 14px !important;
+  letter-spacing: 0.3px !important;
+  line-height: 1.4 !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+.other-composer button {
+  flex: 0 0 auto !important;
+  width: 44px !important;
+  height: 44px !important;
+  box-sizing: border-box !important;
+}
+
+/* Fix customer form fields text cut-off */
+.customer-form-fields {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+  gap: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+.customer-form-fields input {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  padding: 10px 16px !important;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 13px !important;
+  letter-spacing: 0.3px !important;
+}
+
+/* Static Sticky Topbar visible after scrolling */
+.topbar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1000 !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+}
+
+.app-shell {
+  min-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: #f8fafc !important;
+}
+
+/* Chat container fixed sizing & inner scrolling */
+.other-view {
+  max-width: 900px !important;
+  width: 100% !important;
+  margin: 20px auto !important;
+  height: calc(100vh - 120px) !important;
+  max-height: calc(100vh - 120px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border-radius: 20px !important;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08) !important;
+  overflow: hidden !important;
+}
+
+.other-head {
+  flex: 0 0 auto !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  background: #ffffff !important;
+}
+
+.other-messages {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 24px !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #E31B23 #f1f5f9 !important;
+}
+
+/* Custom Scrollbar inside chatbot messages area */
+.other-messages::-webkit-scrollbar {
+  width: 7px !important;
+}
+.other-messages::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+  border-radius: 10px !important;
+}
+.other-messages::-webkit-scrollbar-thumb {
+  background: #E31B23 !important;
+  border-radius: 10px !important;
+}
+.other-messages::-webkit-scrollbar-thumb:hover {
+  background: #B80E16 !important;
+}
+
+.other-composer {
+  flex: 0 0 auto !important;
+  background: #ffffff !important;
+  border-top: 1px solid #f1f5f9 !important;
+}
+
+
