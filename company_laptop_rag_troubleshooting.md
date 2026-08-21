@@ -24,7 +24,50 @@ PORT=8000
 ```
 
 > [!IMPORTANT]
-> Make sure `LLM_MODEL` is set to **`gemini-3.6-flash`** (not `gemini-2.5-flash` or `gemini-1.5-flash`, which return API 404 errors).
+> Make sure `LLM_MODEL` is set to **`gemini-3.6-flash`** (or `openrouter` with `LLM_MODEL=openai/gpt-4o-mini`).
+
+---
+
+### 🚨 Fixing `python -m venv venv` Failure (`No module named 'encodings'`)
+
+If running `python -m venv venv` gives the error `<no python frame> No module named 'encodings'`, or if `python.org` is blocked by corporate firewall:
+
+#### Solution 1: Skip `venv` completely (Recommended for Corporate Laptops)
+Creating a virtual environment is **not required**. You can install packages and run the project directly using system Python:
+
+```powershell
+# 1. Install backend dependencies directly using system python:
+python -m pip install -r requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org
+
+# 2. Run backend server:
+python -m uvicorn app.main:app --reload
+```
+
+#### Solution 2: If `venv` creation is required, use `--copies`
+If you want an isolated environment, Windows corporate permissions often fail on symlinks. Delete the broken folder and use `--copies`:
+```powershell
+# Delete broken venv
+Remove-Item -Recurse -Force venv -ErrorAction SilentlyContinue
+
+# Create venv copying binaries
+python -m venv venv --copies
+.\venv\Scripts\activate
+pip install -r requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org
+```
+
+#### Solution 3: If `python.org` / PyPI or `npm` is blocked by Firewall
+If your company firewall blocks SSL certificates for `pypi.org` or `npmjs.org`:
+
+```powershell
+# For Python pip (bypasses SSL proxy block):
+python -m pip install -r requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org --no-cache-dir
+
+# For Frontend npm:
+cd frontend
+npm config set strict-ssl false
+npm install
+npm run dev
+```
 
 ---
 
