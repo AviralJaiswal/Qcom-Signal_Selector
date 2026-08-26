@@ -19,7 +19,7 @@ from app.assistant.plan_recommendation import recommend_plan_conversational
 from app.chat.session import session_store
 from app.chat.state import state_for_response, state_from_session, ConversationState
 from app.rag.chroma_rag import query_faq_collection, generate_grounded_faq_answer
-from app.services.address_service import qualify, _is_invalid_or_dummy_pincode, clean_street_address
+from app.services.address_service import qualify, _is_invalid_or_dummy_pincode, clean_street_address, extract_street_address_llm
 from app.services.appointment_service import available_slots, select_slot
 from app.services.customer_service import find_or_validate
 from app.services.order_service import create_order
@@ -240,11 +240,28 @@ def _is_order_intent_trigger(text: str) -> bool:
     low = text.lower()
     if _extract_pincode(text):
         return True
+
+    # 1. Direct purchase action words or serviceability check keywords
+    order_action_keywords = (
+        "buy", "book", "purchase", "subscribe", "sign up", "get a new", "need a new",
+        "i want a new", "want to buy", "want to book", "want to get", "check coverage",
+        "check serviceability", "my pincode", "my address", "pincode is", "pin code is", "located at"
+    )
+    if any(w in low for w in order_action_keywords):
+        return True
+
+    # 2. General questions inquiring about plans/prices/options without purchase action stay in RAG
+    question_starters = (
+        "what", "tell me", "show me", "how much", "what is", "what are",
+        "which plan", "recommend", "compare", "options", "details", "explain"
+    )
+    if any(q in low for q in question_starters):
+        return False
+
+    # 3. Connection order phrases
     order_phrases = (
-        "new connection", "fiber connection", "fibre connection", "new fiber", "new fibre",
-        "buy plan", "order plan", "book connection", "get fiber", "get broadband",
-        "subscribe", "sign up", "order fiber", "check pincode", "check address", "check serviceability",
-        "my address", "pincode is", "pin code is", "located at"
+        "new connection", "new fiber", "new fibre", "order plan", "order fiber",
+        "get fiber", "get broadband", "get a connection", "get new connection"
     )
     return any(p in low for p in order_phrases)
 
@@ -286,11 +303,19 @@ def handle_message(
         session.update({k: v for k, v in structured_fields.items() if v is not None})
 
     # ONE-WAY STATE MACHINE GUARDRAIL:
-    # If session is already in ORDER_FLOW, it STAYS locked in ORDER_FLOW.
-    # Otherwise, check if user message triggers transition from RAG to ORDER_FLOW.
-    if current_mode == "ORDER_FLOW" or current_mode == "ORDER_COMPLETED" or session.get("pincode") or session.get("requires_full_address"):
+    # If user asks to reset/change location or start over, unlock RAG mode
+    if _is_escape_intent(message):
+        session["pincode"] = None
+        session["street_address"] = None
+        session["requires_full_address"] = False
+        session["address_qualified"] = False
+        session["address_confirmed"] = False
+        session["awaiting_address_confirmation"] = False
+        session["address_prompt_count"] = 0
+        session["mode"] = "RAG"
+    elif current_mode == "ORDER_FLOW" or current_mode == "ORDER_COMPLETED":
         session["mode"] = "ORDER_FLOW"
-    elif _is_order_intent_trigger(message) or structured_fields:
+    elif _is_order_intent_trigger(message) or structured_fields or session.get("pincode") or session.get("requires_full_address"):
         session["mode"] = "ORDER_FLOW"
         logger.info("State transition: session=%s RAG -> ORDER_FLOW", session_id)
     else:
@@ -427,9 +452,9 @@ def handle_message(
 
     if pincode and not re.fullmatch(r"\d{6}", msg_strip):
         if not re.search(r"\b(?:hi|hello|book|order|select|gaming|work)\b", msg_low):
-            cleaned_input = clean_street_address(msg_strip, pincode)
-            if cleaned_input:
-                street_address = cleaned_input
+            extracted = extract_street_address_llm(msg_strip, pincode)
+            if extracted:
+                street_address = extracted
                 session["street_address"] = street_address
 
     if pincode and not session.get("address_qualified"):
@@ -522,6 +547,25 @@ def handle_message(
 
     # Prompt for complete address if not provided yet in Order Flow
     if not pincode or not session.get("address_qualified"):
+        # Check if user message is actually a FAQ/general question rather than an address
+        if not re.search(r"\d{6}", msg_strip) and not clean_street_address(msg_strip, pincode):
+            chunks = query_faq_collection(message, top_k=3)
+            if chunks:
+                faq_answer = generate_grounded_faq_answer(message, chunks)
+                answer = f"{faq_answer}\n\n*(Note: Whenever you're ready to check local plan availability or book a connection, please share your PIN code or complete street address!)*"
+                updated_state = state_for_response(state_from_session(session_id, session))
+                return {
+                    "sessionId": session_id,
+                    "conversationId": conversation_id,
+                    "mode": "ORDER_FLOW",
+                    "intent": "FAQ_KNOWLEDGE",
+                    "workflowState": "ADDRESS_QUALIFICATION",
+                    "response": answer,
+                    "sources": [{"type": "faq_chunk", "chunk": c} for c in chunks],
+                    "canStartNewConnection": True,
+                    "updatedState": updated_state,
+                }
+
         answer = _generate_prompt_complete_address(pincode=pincode if session.get("requires_full_address") else None)
         updated_state = state_for_response(state_from_session(session_id, session))
         return {

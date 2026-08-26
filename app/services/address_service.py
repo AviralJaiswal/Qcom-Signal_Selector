@@ -15,6 +15,12 @@ def clean_street_address(text: str, pincode: str | None = None) -> str:
     if not text:
         return ""
     cleaned = text.strip()
+    low = cleaned.lower()
+
+    # 0. If text is a question/query without physical address keywords, return empty string
+    if low.endswith("?") or re.search(r"\b(?:what|how|why|which|when|where|tell|show|can|could|would|provide|included)\b", low):
+        if not re.search(r"\b(?:street|road|flat|apt|apartment|house|plot|building|lane|marg|nagar|society|colony|block|sector|floor)\b", low):
+            return ""
 
     # 1. Remove 6-digit pincodes from the street address text
     cleaned = re.sub(r"\b[1-9][0-9]{5}\b", "", cleaned).strip()
@@ -22,19 +28,70 @@ def clean_street_address(text: str, pincode: str | None = None) -> str:
         cleaned = cleaned.replace(pincode.strip(), "").strip()
 
     # 2. Strip conversational words/phrases anywhere in input
-    conv_words = r"\b(?:okay|ok|yes|yeah|yep|sure|hi|hello|hey|my|your|here|is|this|address|add|location|pincode|pin\s+code|zip\s+code|postal\s+code|check|serviceability|coverage|live|at|located)\b"
+    conv_words = (
+        r"\b(?:i|want|to|for|get|book|buy|order|need|new|connection|fiber|fibre|broadband|"
+        r"service|area|available|in|okay|ok|yes|yeah|yep|sure|hi|hello|hey|my|your|here|is|this|"
+        r"address|add|location|pincode|pin\s+code|zip\s+code|postal\s+code|check|serviceability|"
+        r"coverage|live|at|located)\b"
+    )
     cleaned = re.sub(conv_words, "", cleaned, flags=re.IGNORECASE).strip()
 
     # 3. Clean leading/trailing punctuation and extra whitespace
     cleaned = re.sub(r"^[,\s:-]+|[,\s:-]+$", "", cleaned).strip()
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
-    # If remaining text is too short or empty, return empty string
-    if len(cleaned) < 3 or cleaned.lower() in {"india", "area"}:
+    # 4. Check if remaining text has any real street/building indicators or numbers
+    has_building_indicator = bool(re.search(r"\b(?:street|road|flat|apt|apartment|house|plot|building|lane|marg|nagar|society|colony|block|sector|floor|no|nr|near|opp|opposite|phase|stage|extension|ext|cross|main)\b", cleaned, re.I))
+    has_number = bool(re.search(r"\d", cleaned))
+
+    # If remaining text has no numbers, no building indicators, and is just generic words/too short, return empty
+    if not has_building_indicator and not has_number and len(cleaned.split()) < 2:
+        return ""
+
+    if len(cleaned) < 3 or cleaned.lower() in {"india", "area", "city", "state", "town"}:
         return ""
 
     return cleaned
 
+
+
+def extract_street_address_llm(text: str, pincode: str | None = None) -> str | None:
+    """Use LLM to accurately extract physical street address (house/flat/building/street)
+    from customer message, ignoring general intents, questions, and conversational text."""
+    if not text or re.fullmatch(r"\d{6}", text.strip()):
+        return None
+
+    msg_clean = re.sub(r"\b[1-9][0-9]{5}\b", "", text).strip()
+    if not msg_clean:
+        return None
+
+    try:
+        from app.assistant.llm import generate_json
+        prompt = f"""Analyze this customer message for a telecom broadband application.
+Determine if the customer provided an actual physical street address (such as house/flat number, apartment/building name, street, road, colony, nagar, or sector).
+
+Customer Message: "{text}"
+PIN Code: {pincode or 'None'}
+
+RULES:
+1. If the message only expresses intent, asks a question, or mentions a pincode (e.g. "I want to discover plans for my pincode 201012", "Check coverage for 500084", "Is service available in Delhi?"), return JSON: {{"has_street_address": false, "street_address": null}}
+2. ONLY if the message contains a specific physical street address (e.g. "Flat 402, Sunshine Apts, MG Road", "Plot 12, Sector 14, Vasundhara"), return JSON: {{"has_street_address": true, "street_address": "extracted street address"}}
+
+Return strictly valid JSON only:
+{{"has_street_address": true/false, "street_address": "string or null"}}"""
+
+        parsed = generate_json(prompt, system="You return strict JSON only.", timeout=4)
+        if parsed and isinstance(parsed, dict):
+            if parsed.get("has_street_address") and parsed.get("street_address"):
+                addr = str(parsed["street_address"]).strip()
+                if len(addr) >= 3 and addr.lower() not in {"null", "none", "discover plans", "plans", "coverage", "check coverage"}:
+                    return addr
+            elif parsed.get("has_street_address") is False:
+                return None
+    except Exception as exc:
+        logger.warning("LLM street address extraction failed, fallback to pattern cleaner: %s", exc)
+
+    return clean_street_address(text, pincode)
 
 
 METRO_TELECOM_MAP = [
@@ -345,71 +402,100 @@ def _is_invalid_or_dummy_pincode(pincode: str) -> bool:
 
 
 def qualify(db: Session, pincode: str, street_address: str | None = None) -> dict:
-    """Two-Step Location Qualification using OLA Maps API as Primary provider (and Nominatim fallback):
-    Step 2A: Pincode Check -> Returns serviceable=True, requires_full_address=True (Plans NOT shown yet)
-    Step 2B: Full Street Address Verification -> Returns address_qualified=True (Enables regional plans)
+    """Three-State Location Qualification using DB Serviceability Data + OLA Maps / Nominatim:
+    States:
+    1. AVAILABLE (serviceable=True): Explicitly marked serviceable in DB or geocoded.
+    2. UNAVAILABLE (serviceable=False): Explicitly marked unserviceable in DB.
+    3. UNKNOWN (serviceable=True/pending): Valid pincode with no DB record - NOT automatically unserviceable.
     """
     cleaned_pin = (pincode or "").strip()
     if _is_invalid_or_dummy_pincode(cleaned_pin):
         return {
             "found": False,
             "serviceable": False,
+            "serviceability_status": "INVALID",
             "address_qualified": False,
             "pincode": cleaned_pin,
-            "message": f"Sorry, PIN code {cleaned_pin} is invalid or not serviceable by Signal Selector Fiber. Please check your 6-digit PIN code and try again."
+            "message": f"Sorry, PIN code {cleaned_pin} is invalid. Valid Indian PIN codes are 6 digits starting with numbers 1 to 8."
         }
+
+    # Query project's actual database serviceability record first
+    db_addr = db.scalar(select(Address).where(Address.pincode == cleaned_pin))
+
+    if db_addr and not db_addr.serviceable:
+        # Explicitly marked UNAVAILABLE in DB
+        return {
+            "found": True,
+            "serviceable": False,
+            "serviceability_status": "UNAVAILABLE",
+            "address_qualified": False,
+            "pincode": cleaned_pin,
+            "city": db_addr.city,
+            "state": db_addr.state,
+            "message": f"Sorry, our fiber services are currently unavailable at PIN code {cleaned_pin} in {db_addr.city}, {db_addr.state}. We are expanding soon!"
+        }
+
+    # Determine status & geocoding details
+    serviceability_status = "AVAILABLE" if db_addr and db_addr.serviceable else "UNKNOWN"
 
     if street_address and street_address.strip():
         cleaned_street = clean_street_address(street_address, cleaned_pin) or street_address.strip()
-        # Step 2B: Full Street Address Verification (Primary: OLA Maps, Secondary: Nominatim)
+        # Step 2B: Full Street Address Verification (Primary: OLA Maps, Secondary: Nominatim, Fallback: DB)
         geo = _olamaps_address_lookup(cleaned_street, cleaned_pin) or _nominatim_address_lookup(cleaned_street, cleaned_pin)
         if not geo:
-            # Fallback using DB only if valid pincode exists in DB
-            db_addr = db.scalar(select(Address).where(Address.pincode == cleaned_pin))
-            if db_addr and db_addr.serviceable:
+            if db_addr:
                 region = get_telecom_circle(state=db_addr.state, city=db_addr.city, pincode=cleaned_pin)
                 geo = {
                     "found": True,
                     "serviceable": True,
+                    "serviceability_status": serviceability_status,
                     "address_qualified": True,
                     "provider": "TELECOM_CIRCLE_DB",
                     "pincode": cleaned_pin,
                     "street_address": cleaned_street,
-                    "formatted_address": f"{cleaned_street}, {cleaned_pin}",
+                    "formatted_address": f"{cleaned_street}, {db_addr.city}, {db_addr.state} {cleaned_pin}",
                     "city": db_addr.city,
                     "state": db_addr.state,
                     "region": region,
                 }
             else:
-                return {
-                    "found": False,
-                    "serviceable": False,
-                    "address_qualified": False,
+                region = get_telecom_circle(pincode=cleaned_pin)
+                geo = {
+                    "found": True,
+                    "serviceable": True,
+                    "serviceability_status": "UNKNOWN",
+                    "address_qualified": True,
+                    "provider": "PINCODE_REGION",
                     "pincode": cleaned_pin,
-                    "message": f"Sorry, our fiber services are currently not available at PIN code {cleaned_pin}. We are expanding soon!"
+                    "street_address": cleaned_street,
+                    "formatted_address": f"{cleaned_street}, {cleaned_pin}",
+                    "city": "Metro Center",
+                    "state": "India",
+                    "region": region,
                 }
-        
+
         state_prefix = (geo.get("state") or "REG")[:3].upper()
-        fdh_id = f"FDH-{state_prefix}-01"
+        fdh_id = db_addr.fdh_id if db_addr else f"FDH-{state_prefix}-01"
         geo.update({
+            "serviceability_status": serviceability_status,
             "fdh_id": fdh_id,
-            "mst_id": f"MST-{state_prefix}-01",
-            "olt_id": f"OLT-{state_prefix}-01",
-            "max_speed_available_mbps": 1000,
+            "mst_id": db_addr.mst_id if db_addr else f"MST-{state_prefix}-01",
+            "olt_id": db_addr.olt_id if db_addr else f"OLT-{state_prefix}-01",
+            "max_speed_available_mbps": db_addr.max_speed_available_mbps if db_addr else 1000,
             "requires_full_address": False,
             "message": f"Address verified for {geo['city']}, {geo['state']} ({geo['region']} Circle). Regional plans unlocked!"
         })
         return geo
 
-    # Step 2A: Pincode Check Only (Primary: OLA Maps, Secondary: Nominatim)
+    # Pincode Only Check
     geo = _olamaps_pincode_lookup(cleaned_pin) or _nominatim_pincode_lookup(cleaned_pin)
     if not geo:
-        db_addr = db.scalar(select(Address).where(Address.pincode == cleaned_pin))
-        if db_addr and db_addr.serviceable:
+        if db_addr:
             region = get_telecom_circle(state=db_addr.state, city=db_addr.city, pincode=cleaned_pin)
             geo = {
                 "found": True,
                 "serviceable": True,
+                "serviceability_status": serviceability_status,
                 "pincode": cleaned_pin,
                 "city": db_addr.city,
                 "state": db_addr.state,
@@ -417,21 +503,31 @@ def qualify(db: Session, pincode: str, street_address: str | None = None) -> dic
                 "fdh_id": db_addr.fdh_id,
             }
         else:
-            return {
-                "found": False,
-                "serviceable": False,
-                "address_qualified": False,
+            region = get_telecom_circle(pincode=cleaned_pin)
+            geo = {
+                "found": True,
+                "serviceable": True,
+                "serviceability_status": "UNKNOWN",
                 "pincode": cleaned_pin,
-                "message": f"Sorry, our fiber services are currently not available at PIN code {cleaned_pin}. We are expanding soon!"
+                "city": "Metro Center",
+                "state": "India",
+                "region": region,
+                "fdh_id": "FDH-REG-01",
             }
 
     state_prefix = (geo.get("state") or "REG")[:3].upper()
+    status_msg = (
+        f"Pincode {cleaned_pin} in {geo.get('city', 'Metro')}, {geo.get('state', 'Zone')} is in our service area!"
+        if serviceability_status == "AVAILABLE" else
+        f"Pincode {cleaned_pin} in {geo.get('city', 'Metro')}, {geo.get('state', 'Zone')} is a valid area (coverage pending verification)."
+    )
     geo.update({
+        "serviceability_status": serviceability_status,
         "requires_full_address": True,
         "address_qualified": False,
-        "fdh_id": f"FDH-{state_prefix}-01",
-        "max_speed_available_mbps": 1000,
-        "message": f"Pincode {cleaned_pin} in {geo.get('city', 'Metro')}, {geo.get('state', 'Zone')} is in our service area! PIN code alone is not sufficient. Please provide your complete street address (house/flat no, street, locality) to view regional fiber plans."
+        "fdh_id": db_addr.fdh_id if db_addr else f"FDH-{state_prefix}-01",
+        "max_speed_available_mbps": db_addr.max_speed_available_mbps if db_addr else 1000,
+        "message": f"{status_msg} Please share your complete street address (house/flat no, street, locality) to view regional fiber plans."
     })
     return geo
 

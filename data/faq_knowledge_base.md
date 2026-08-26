@@ -1,11 +1,15 @@
 # Signal Selector Telecom Knowledge Base & FAQs
 
-## Broadband Plan Recommendations & Use Cases
-- **40 Mbps Basic Plan**: Ideal for basic web browsing, social media, and standard streaming for 1-2 users.
-- **100 Mbps Standard Plan**: Best for HD streaming, multi-device browsing, and online classes for small families.
-- **200 Mbps Entertainment Plan**: Ideal for work-from-home, heavy file uploads, and family entertainment with bundled OTT benefits.
-- **300 Mbps Professional Plan**: Best for heavy 4K/8K streaming, multiplayer online gaming with ultra-low ping (<5ms), and large family homes. Includes premium OTT apps.
-- **1 Gbps Infinity Plan**: Ultra-fast Gigabit speed for intensive gaming, smart homes with 15+ devices, and ultimate premium entertainment.
+## Broadband Plan Recommendations, Pricing & Speeds
+We offer the following standard India-wide Fiber Broadband plans:
+- **40 Mbps Basic Plan (Basic 40M)**: ₹499/month, Unlimited Data. Ideal for basic web browsing, social media, and standard streaming for 1-2 users.
+- **100 Mbps Standard Plan (Standard 100M)**: ₹799/month, Unlimited Data. Includes Disney+ Hotstar. Best for HD streaming, multi-device browsing, and online classes for small families.
+- **200 Mbps Entertainment Plan (Entertainment 200M)**: ₹999/month, Unlimited Data. Includes Disney+ Hotstar, Amazon Prime, Zee5. Ideal for work-from-home, heavy file uploads, and family entertainment with bundled OTT benefits.
+- **300 Mbps Professional Plan (Professional 300M)**: ₹1,499/month, Unlimited Data. Includes Netflix, Amazon Prime, Disney+ Hotstar, SonyLIV, Zee5. Best for heavy 4K/8K streaming, multiplayer online gaming with ultra-low ping (<5ms), and large family homes.
+- **500 Mbps Max Plan (Max 500M)**: ₹2,499/month, Unlimited Data. Includes Netflix Standard, Amazon Prime, Disney+ Hotstar Premium, SonyLIV, Zee5. Extreme speed for heavy multi-user demand.
+- **1 Gbps Infinity Plan (Infinity 1G)**: ₹3,999/month, Unlimited Data. Includes Netflix Premium 4K, Amazon Prime, Disney+ Hotstar Premium, SonyLIV, Zee5, Apple TV+. Ultra-fast Gigabit speed for intensive gaming, smart homes with 15+ devices, and ultimate premium entertainment.
+
+All plans feature symmetric download and upload speeds, 99.9% uptime SLA, and free dual-band Wi-Fi 6 ONT router on 6-month or 12-month advance plans.
 
 ## Installation Timelines & Express Dispatch
 - **Standard Installation Timeline**: Fiber optic broadband installation is completed within 24 to 48 hours after order confirmation and successful payment.

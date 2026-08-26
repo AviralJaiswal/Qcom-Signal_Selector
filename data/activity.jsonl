@@ -197,3 +197,7 @@
 {"timestamp": "2026-08-23T10:25:24.547543Z", "event_type": "session_welcome", "session_id": "3b2b1e29-b3cd-4686-9093-64933aa25350", "channel": "api"}
 {"timestamp": "2026-08-23T10:25:49.783633Z", "event_type": "session_welcome", "session_id": "286bf998-cef7-4e40-82f7-4d580357a187", "channel": "api"}
 {"timestamp": "2026-08-23T10:47:24.070548Z", "event_type": "session_welcome", "session_id": "483ba4c3-a607-4adb-af7c-7b734355c321", "channel": "api"}
+{"timestamp": "2026-08-26T04:32:10.594048Z", "event_type": "session_start", "session_id": "d342d5cb29594a1080322ea8c79dd2b9", "channel": "api"}
+{"timestamp": "2026-08-26T04:32:13.343481Z", "event_type": "pincode_check", "session_id": "d342d5cb29594a1080322ea8c79dd2b9", "pincode": "110001", "street_address": null, "serviceable": true, "circle": "Delhi NCR"}
+{"timestamp": "2026-08-26T04:33:15.808503Z", "event_type": "session_start", "session_id": "82c20c416c1648b192b88dbccbe4916f", "channel": "api"}
+{"timestamp": "2026-08-26T04:33:17.494628Z", "event_type": "pincode_check", "session_id": "82c20c416c1648b192b88dbccbe4916f", "pincode": "110001", "street_address": null, "serviceable": true, "circle": "Delhi NCR"}

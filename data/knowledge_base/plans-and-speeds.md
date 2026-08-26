@@ -10,4 +10,4 @@
 1 Gbps is intended for demanding multi-user homes, large file transfers, high-resolution streaming, gaming, and many connected devices. Device Ethernet ports and Wi-Fi capability can limit the speed seen by a single device.
 
 ## Choosing a speed tier
-For gaming, low latency, a wired Ethernet connection, and a well-positioned router can matter as much as headline speed. For streaming and work from home, consider simultaneous users, video-call use, cloud backups, and home coverage. Current plan availability, eligibility, and prices must be checked through the plan catalog after address qualification; this knowledge base does not provide live prices.
+For gaming, low latency, a wired Ethernet connection, and a well-positioned router can matter as much as headline speed. Standard India-wide plan pricing: 40 Mbps @ ₹499/mo, 100 Mbps @ ₹799/mo (Hotstar), 200 Mbps @ ₹999/mo (Hotstar+Prime+Zee5), 300 Mbps @ ₹1,499/mo (Netflix+Prime+Hotstar+SonyLIV+Zee5), 500 Mbps @ ₹2,499/mo, and 1 Gbps @ ₹3,999/mo. Regional fiber availability and speed limits can be verified when checking coverage for a specific address.
