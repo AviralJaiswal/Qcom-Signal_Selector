@@ -62,7 +62,7 @@ All plans feature symmetric download and upload speeds, 99.9% uptime SLA, and fr
 ## Plan Switching, Upgrades & Downgrades
 - **Instant Plan Upgrades**: Existing customers can upgrade to higher speed plans (e.g. from 100 Mbps to 300 Mbps or 1 Gbps) instantly at zero upgrade fee. The price difference will be prorated on your next billing statement.
 - **Switching Billing Cycles**: Convert monthly plan to 6-Month or 12-Month advance plans anytime to unlock free OTT subscriptions and waive future installation fees.
-- **How to Switch / Start Order**: If you wish to switch your current connection, upgrade your plan, or set up a brand new fiber connection, simply provide your **6-digit area PIN code** to check instant plan availability and start your booking order!
+- **How to Switch / Start Order**: If you wish to switch your current connection, upgrade your plan, or set up a brand new fiber connection, simply provide your **complete street address (including house/flat number, building name, street, area, and pincode)** to check instant plan availability and start your booking order!
 
 ## OTT Entertainment Bundles & Streaming Benefits
 - **Bundled OTT Apps**: 200 Mbps, 300 Mbps, and 1 Gbps plans include complimentary OTT subscriptions:
@@ -71,5 +71,5 @@ All plans feature symmetric download and upload speeds, 99.9% uptime SLA, and fr
 - **Activation**: OTT vouchers and single-sign-on links are delivered via SMS / Email within 2 hours of internet connection activation.
 
 ## Transition to New Connection Setup (Order Flow)
-- **Ready to Subscribe or Switch?**: If you want to check plan availability, compare high-speed fiber options, or book a new connection or plan upgrade for your residence or business, just share your **6-digit PIN code**!
-- **Smooth Chat Setup**: Once you enter your pincode in the chat, our AI assistant will guide you through location qualification, address details, plan selection, technician slot booking, and secure checkout entirely within this chat interface.
+- **Ready to Subscribe or Switch?**: If you want to check plan availability, compare high-speed fiber options, or book a new connection or plan upgrade for your residence or business, just share your **complete street address (house/flat number, building, street, area, and pincode)**!
+- **Smooth Chat Setup**: Once you enter your complete street address in the chat, our AI assistant will guide you through location qualification, address details, plan selection, technician slot booking, and secure checkout entirely within this chat interface.

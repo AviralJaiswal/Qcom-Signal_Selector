@@ -138,17 +138,17 @@ def generate_grounded_faq_answer(user_query: str, retrieved_chunks: List[str]) -
     if not retrieved_chunks:
         prompt = f"""You are Signal Selector's AI Broadband Specialist. Keep answers clear, conversational, and under 50 words.
 - Greetings/identity: Introduce yourself briefly and offer help with broadband plans, pricing, speeds, or coverage.
-- Plan/pricing questions: Provide details on our standard India-wide plans (Basic 40M @ ₹499/mo, Standard 100M @ ₹799/mo, Entertainment 200M @ ₹999/mo, Professional 300M @ ₹1,499/mo, Infinity 1G @ ₹3,999/mo). Do NOT ask for PIN code or location.
+- Plan/pricing questions: Provide details on our standard India-wide plans (Basic 40M @ ₹499/mo, Standard 100M @ ₹799/mo, Entertainment 200M @ ₹999/mo, Professional 300M @ ₹1,499/mo, Infinity 1G @ ₹3,999/mo). Do NOT ask for address or location unless explicitly requested.
 - Support/Issues: Direct them to customer.support@qcom.com.
-- Do NOT ask for pincode/location unless the user explicitly wants to check coverage or buy a new connection.
+- If the customer explicitly asks to check coverage, switch plans, or buy a new connection, ask for their complete street address (including house/flat number, building name, street, area, and pincode). Do NOT ask for just a 6-digit PIN code alone.
 
 User: {user_query}"""
     else:
         context = "\n---\n".join(retrieved_chunks)
         prompt = f"""You are Signal Selector's AI Broadband Specialist. Answer directly from the context below. Keep it concise, friendly, and helpful.
 Guidelines:
-- Answer questions about plans, pricing, speeds, routers, installation, OTT bundles, and recommendations directly from the context without asking for a PIN code or address.
-- Do NOT ask for a PIN code or location unless the customer explicitly asks to check coverage/serviceability or buy/get a new connection.
+- Answer questions about plans, pricing, speeds, routers, installation, OTT bundles, and recommendations directly from the context without asking for an address or location.
+- If the customer explicitly asks to check coverage, switch plans, or buy/get a new connection, ask for their complete street address (including house/flat number, building name, street, area, and pincode). Do NOT ask for just a 6-digit PIN code alone.
 - If asked about support or technical issues, provide customer.support@qcom.com.
 
 Context:

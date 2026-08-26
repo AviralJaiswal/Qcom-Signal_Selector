@@ -87,9 +87,9 @@ def _generate_pincode_only_prompt(pincode: str, city: str | None = None, state: 
     location_info = f"in {city}, {state}" if city and state else (f"in {city}" if city else "")
     prompt = (
         f"The customer provided only the 6-digit PIN code '{pincode}' {location_info}. "
-        "PIN code alone is not sufficient to qualify coverage and show fiber plans because Ola Maps API requires the complete street address. "
-        "Acknowledge their PIN code area politely and explain that a 6-digit PIN code is not sufficient. "
-        "Ask them to provide their complete street address (house/flat number, street name, and area/locality). "
+        "First, politely confirm that their PIN code area is serviceable for fiber connections. "
+        "Then explain that a PIN code alone is not sufficient to qualify exact premise coverage or unlock local fiber plans. "
+        "Ask them to provide their complete street address (including house/flat number, building name, street, and locality). "
         "Keep it under 35 words total. Do not use markdown."
     )
     try:
@@ -99,8 +99,8 @@ def _generate_pincode_only_prompt(pincode: str, city: str | None = None, state: 
     except Exception as exc:
         logger.warning("LLM pincode-only prompt error: %s", exc)
     return (
-        f"PIN code {pincode} {location_info} is in our service area! However, just a PIN code is not sufficient. "
-        "Please share your complete street address (house/flat number, street name, and locality) so we can verify exact coverage with Ola Maps and unlock fiber plans."
+        f"PIN code {pincode} {location_info} is in our service area! However, a PIN code alone is not sufficient. "
+        "Please share your complete street address (house/flat number, building name, street, and locality) so we can verify exact coverage and unlock fiber plans."
     )
 
 
