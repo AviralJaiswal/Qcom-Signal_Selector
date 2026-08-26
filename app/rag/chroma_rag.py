@@ -101,8 +101,11 @@ def init_faq_chroma() -> bool:
 def query_faq_collection(query: str, top_k: int = 3) -> List[str]:
     """Retrieve top matching FAQ chunks from ChromaDB vector collection."""
     settings = get_settings()
+    q_low = query.lower()
+    all_chunks = load_and_chunk_faq_md()
 
     # 1. Try ChromaDB retrieval
+    docs = []
     try:
         import chromadb
         client = chromadb.PersistentClient(path=settings.chroma_path)
@@ -115,14 +118,26 @@ def query_faq_collection(query: str, top_k: int = 3) -> List[str]:
 
         res = collection.query(query_texts=[query], n_results=min(top_k, max(1, collection.count())))
         docs = (res.get("documents") or [[]])[0]
-        if docs:
-            return docs
     except Exception as exc:
         logger.warning("ChromaDB query failed: %s. Using markdown chunk fallback.", exc)
 
-    # 2. Fallback ranker over markdown chunks
-    all_chunks = load_and_chunk_faq_md()
-    q_words = set(re.findall(r'\w+', query.lower()))
+    # 2. Priority check: If user query asks about plans, pricing, speeds, or available options,
+    # ensure the Broadband Plans chunk is included at position 0.
+    is_plan_query = any(k in q_low for k in ["plan", "plans", "pricing", "price", "prices", "cost", "speed", "speeds", "rate", "rates", "offer", "offers", "available", "package", "packages"])
+    if is_plan_query:
+        plan_chunk = next((c["text"] for c in all_chunks if "Broadband Plan Recommendations" in c.get("header", "") or "40 Mbps Basic Plan" in c["text"]), None)
+        if plan_chunk:
+            if docs:
+                if plan_chunk not in docs:
+                    docs = [plan_chunk] + docs[:top_k - 1]
+            else:
+                docs = [plan_chunk]
+
+    if docs:
+        return docs
+
+    # 3. Fallback ranker over markdown chunks
+    q_words = set(re.findall(r'\w+', q_low))
     scored = []
     for c in all_chunks:
         text_lower = c["text"].lower()
@@ -135,30 +150,32 @@ def query_faq_collection(query: str, top_k: int = 3) -> List[str]:
 
 def generate_grounded_faq_answer(user_query: str, retrieved_chunks: List[str]) -> str:
     """Dynamic RAG synthesis grounded on telecom knowledge base via model prompt instructions."""
-    if not retrieved_chunks:
-        prompt = f"""You are Signal Selector's AI Broadband Specialist. Keep answers clear, conversational, and under 50 words.
-- Greetings/identity: Introduce yourself briefly and offer help with broadband plans, pricing, speeds, or coverage.
-- Plan/pricing questions: Provide details on our standard India-wide plans (Basic 40M @ ₹499/mo, Standard 100M @ ₹799/mo, Entertainment 200M @ ₹999/mo, Professional 300M @ ₹1,499/mo, Infinity 1G @ ₹3,999/mo). Do NOT ask for address or location unless explicitly requested.
-- Support/Issues: Direct them to customer.support@qcom.com.
-- If the customer explicitly asks to check coverage, switch plans, or buy a new connection, ask for their complete street address (including house/flat number, building name, street, area, and pincode). Do NOT ask for just a 6-digit PIN code alone.
+    context = "\n---\n".join(retrieved_chunks) if retrieved_chunks else ""
+    
+    prompt = f"""You are Signal Selector's AI Broadband Specialist. Keep answers clear, professional, friendly, and under 90 words.
 
-User: {user_query}"""
-    else:
-        context = "\n---\n".join(retrieved_chunks)
-        prompt = f"""You are Signal Selector's AI Broadband Specialist. Answer directly from the context below. Keep it concise, friendly, and helpful.
-Guidelines:
-- Answer questions about plans, pricing, speeds, routers, installation, OTT bundles, and recommendations directly from the context without asking for an address or location.
-- If the customer explicitly asks to check coverage, switch plans, or buy/get a new connection, ask for their complete street address (including house/flat number, building name, street, area, and pincode). Do NOT ask for just a 6-digit PIN code alone.
-- If asked about support or technical issues, provide customer.support@qcom.com.
+GUIDELINES:
+1. General Plan Queries (BEFORE address): If the customer asks about available plans, pricing, speeds, or options (e.g. "what are the plans available?"), list our standard India-wide plans clearly with their monthly rates:
+   - Basic 40M (40 Mbps): ₹499/month
+   - Standard 100M (100 Mbps): ₹799/month (includes Disney+ Hotstar)
+   - Entertainment 200M (200 Mbps): ₹999/month (includes Hotstar, Prime, Zee5)
+   - Professional 300M (300 Mbps): ₹1,499/month (includes Netflix, Prime, Hotstar, SonyLIV, Zee5)
+   - Max 500M (500 Mbps): ₹2,499/month
+   - Infinity 1G (1 Gbps): ₹3,999/month
+   Do NOT ask for an address or location for general plan inquiries. NEVER say "I don't have plan details".
+
+2. Service & FAQ Queries: Answer questions about installation timelines/fees, Wi-Fi 6 routers, KYC documents, SLAs, refunds, and support (customer.support@qcom.com) directly from the context without asking for an address.
+
+3. Order & Serviceability Intent: If and ONLY if the customer explicitly expresses intent to check coverage/serviceability or purchase/get a new connection, ask for their COMPLETE STREET ADDRESS (house/flat number, building name, street, locality, and pincode). Both full street address and pincode are mandatory for exact premises qualification. Do NOT ask for just a 6-digit PIN code alone.
 
 Context:
 {context}
 
-User: {user_query}"""
+User Query: {user_query}"""
 
     answer_text = None
     try:
-        answer_text = generate(prompt, temperature=0.5, timeout=6, max_tokens=150)
+        answer_text = generate(prompt, temperature=0.4, timeout=8, max_tokens=220)
     except Exception as exc:
         logger.warning("Grounded RAG synthesis warning: %s", exc)
 

@@ -14,7 +14,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.assistant.llm import generate
+from app.assistant.llm import generate, generate_json, classify_conversation_route
 from app.assistant.plan_recommendation import recommend_plan_conversational
 from app.chat.session import session_store
 from app.chat.state import state_for_response, state_from_session, ConversationState
@@ -39,27 +39,85 @@ def _conversation_id(session: dict) -> str:
 
 
 def _generate_address_confirmation_prompt(formatted_address: str) -> str:
-    """Generate a dynamic 1-2 line LLM question asking user to confirm address before displaying plans."""
+    """Generate a dynamic 1-line LLM question asking user to confirm address ONLY."""
     prompt = (
         f"The user's street address has been verified as: '{formatted_address}'. "
-        f"Write a 2-line message: Line 1: 'Is this address correct: {formatted_address}?' "
-        "Line 2: 'Shall I show available fiber plans?' Keep it under 25 words total. No markdown."
+        f"Write a 1-sentence message stating that this location is verified and serviceable, "
+        "and ask ONLY: 'Is this your correct address?' Do NOT ask about showing plans yet. Keep it under 20 words total. No markdown."
     )
     try:
-        text = generate(prompt, temperature=0.7, timeout=5, max_tokens=60)
+        text = generate(prompt, temperature=0.7, timeout=5, max_tokens=50)
         if text and len(text.strip()) > 10:
-            res = text.strip()
-            res = re.sub(r"\n+", "\n", res)
-            if "?" in res and " Shall" in res:
-                res = res.replace("? Shall", "?\nShall")
-            elif "?" in res and " " in res:
-                parts = res.split("?", 1)
-                if len(parts) > 1 and parts[1].strip():
-                    res = f"{parts[0]}?\n{parts[1].strip()}"
-            return res
+            return text.strip()
     except Exception as exc:
         logger.warning("LLM address confirmation prompt error: %s", exc)
-    return f"Is this address correct: {formatted_address}?\nShall I show the available fiber plans for your area?"
+    return f"We've verified your location at {formatted_address} as serviceable! Is this your correct address?"
+
+
+def _generate_plan_permission_prompt(formatted_address: str) -> str:
+    """Generate a dynamic 1-sentence LLM question asking permission to show fiber plans."""
+    prompt = (
+        f"The user confirmed their address at '{formatted_address}'. "
+        "Write a friendly 1-sentence question asking: "
+        "'Shall I show the available fiber plans for your location?' Keep it under 20 words total. No markdown."
+    )
+    try:
+        text = generate(prompt, temperature=0.7, timeout=5, max_tokens=50)
+        if text and len(text.strip()) > 10:
+            return text.strip()
+    except Exception as exc:
+        logger.warning("LLM plan permission prompt error: %s", exc)
+    return "Great! Address confirmed. Shall I show the available high-speed fiber plans for your location?"
+
+
+def classify_confirmation_intent(message: str) -> str:
+    """Classify user confirmation response into CONFIRM, DENY, or OTHER using LLM JSON mode."""
+    prompt = f"""Classify the user's response to a yes/no question in a conversational broadband setup.
+User message: "{message}"
+
+Return JSON strictly like:
+{{"intent": "CONFIRM"}}  (if user confirms, agrees, says yes, correct, yeah, sure, ok, show plans, proceed, etc.)
+or
+{{"intent": "DENY"}}     (if user disagrees, says no, wrong address, incorrect, change address, cancel, etc.)
+or
+{{"intent": "OTHER"}}    (if user asks a question, changes topic, or provides unrelated input)
+"""
+    try:
+        data = generate_json(prompt, system="Return strict JSON with intent field only.", timeout=5)
+        if data and data.get("intent") in {"CONFIRM", "DENY", "OTHER"}:
+            return str(data.get("intent"))
+    except Exception as exc:
+        logger.warning("LLM confirmation intent classification error: %s", exc)
+
+    low = message.lower().strip()
+    if any(w in low for w in ["yes", "yeah", "yep", "sure", "ok", "correct", "confirm", "right", "show", "proceed", "agreed", "please"]):
+        return "CONFIRM"
+    if any(w in low for w in ["no", "nope", "wrong", "change", "incorrect", "different", "cancel"]):
+        return "DENY"
+    return "OTHER"
+
+
+def classify_plan_selection_intent(message: str) -> str:
+    """Classify user intent during plan selection into RECOMMENDATION_REQUEST or FAQ_QUESTION using LLM JSON mode."""
+    prompt = f"""Classify the customer's message during the plan selection stage of a broadband application.
+Customer message: "{message}"
+
+Return JSON strictly like:
+{{"intent": "RECOMMENDATION_REQUEST"}}  (if customer asks for a recommendation, asks which plan is best for gaming/streaming/work, or asks help choosing)
+or
+{{"intent": "FAQ_QUESTION"}}           (if customer asks a general question, pricing info, installation details, or general message)
+"""
+    try:
+        data = generate_json(prompt, system="Return strict JSON with intent field only.", timeout=5)
+        if data and data.get("intent") in {"RECOMMENDATION_REQUEST", "FAQ_QUESTION"}:
+            return str(data.get("intent"))
+    except Exception as exc:
+        logger.warning("LLM plan selection intent classification error: %s", exc)
+
+    low = message.lower().strip()
+    if any(w in low for w in ["recommend", "best", "gaming", "stream", "suggest", "which plan", "help me choose", "suitable", "question"]):
+        return "RECOMMENDATION_REQUEST"
+    return "FAQ_QUESTION"
 
 
 def _generate_plans_unlocked_message(formatted_address: str, state_or_region: str, plan_count: int) -> str:
@@ -237,11 +295,20 @@ def _is_escape_intent(text: str) -> bool:
 
 def _is_order_intent_trigger(text: str) -> bool:
     """Check if text expresses explicit intent to start an order or check serviceability."""
-    low = text.lower()
+    low = text.lower().strip()
     if _extract_pincode(text):
         return True
 
-    # 1. Direct purchase action words or serviceability check keywords
+    # 1. General info / plan inquiries stay in RAG flow unless explicit purchase/coverage intent is present
+    info_inquiry_phrases = (
+        "what are", "what is", "tell me", "show me", "how much", "which plan",
+        "recommend", "compare", "options", "details", "explain", "plans available",
+        "available plans", "list plans", "standard plans", "broadband plans", "what plans"
+    )
+    if any(q in low for q in info_inquiry_phrases) and not any(k in low for k in ["buy", "book", "purchase", "subscribe", "check coverage", "check serviceability", "new connection"]):
+        return False
+
+    # 2. Direct purchase action words or serviceability check keywords
     order_action_keywords = (
         "buy", "book", "purchase", "subscribe", "sign up", "get a new", "need a new",
         "i want a new", "want to buy", "want to book", "want to get", "check coverage",
@@ -249,14 +316,6 @@ def _is_order_intent_trigger(text: str) -> bool:
     )
     if any(w in low for w in order_action_keywords):
         return True
-
-    # 2. General questions inquiring about plans/prices/options without purchase action stay in RAG
-    question_starters = (
-        "what", "tell me", "show me", "how much", "what is", "what are",
-        "which plan", "recommend", "compare", "options", "details", "explain"
-    )
-    if any(q in low for q in question_starters):
-        return False
 
     # 3. Connection order phrases
     order_phrases = (
@@ -315,11 +374,20 @@ def handle_message(
         session["mode"] = "RAG"
     elif current_mode == "ORDER_FLOW" or current_mode == "ORDER_COMPLETED":
         session["mode"] = "ORDER_FLOW"
-    elif _is_order_intent_trigger(message) or structured_fields or session.get("pincode") or session.get("requires_full_address"):
-        session["mode"] = "ORDER_FLOW"
-        logger.info("State transition: session=%s RAG -> ORDER_FLOW", session_id)
     else:
-        session["mode"] = "RAG"
+        # 1. LLM-driven Intent Classifier (Primary route selection)
+        llm_route = classify_conversation_route(message, session)
+        if llm_route == "TRANSACTION":
+            session["mode"] = "ORDER_FLOW"
+            logger.info("LLM State transition: session=%s RAG -> ORDER_FLOW", session_id)
+        elif llm_route == "KNOWLEDGE":
+            session["mode"] = "RAG"
+        elif _is_order_intent_trigger(message) or structured_fields or session.get("pincode") or session.get("requires_full_address"):
+            # 2. Safety-net fallback if LLM route is inconclusive or API is offline
+            session["mode"] = "ORDER_FLOW"
+            logger.info("Safety-net State transition: session=%s RAG -> ORDER_FLOW", session_id)
+        else:
+            session["mode"] = "RAG"
 
     active_mode = session["mode"]
 
@@ -404,9 +472,10 @@ def handle_message(
             "updatedState": updated_state,
         }
 
-    # Sub-step 1.5: Handle Address Confirmation Response if awaiting confirmation
+    # Sub-step 1.5: Handle Address Confirmation Response
     if session.get("awaiting_address_confirmation"):
-        if any(k in msg_low for k in ["no", "wrong", "change", "incorrect", "different"]):
+        confirm_intent = classify_confirmation_intent(message)
+        if confirm_intent == "DENY":
             session["awaiting_address_confirmation"] = False
             session["address_qualified"] = False
             session["street_address"] = None
@@ -424,9 +493,32 @@ def handle_message(
                 "canStartNewConnection": True,
                 "updatedState": updated_state,
             }
-        else:
+        elif confirm_intent == "CONFIRM":
             session["awaiting_address_confirmation"] = False
             session["address_confirmed"] = True
+            session["awaiting_plan_permission"] = True
+            session["plans_shown"] = False
+            qual = session.get("qualified_address") or {}
+            formatted_addr = qual.get("formatted_address") or session.get("pincode", "")
+            answer = _generate_plan_permission_prompt(formatted_addr)
+            updated_state = state_for_response(state_from_session(session_id, session))
+            return {
+                "sessionId": session_id,
+                "conversationId": conversation_id,
+                "mode": "ORDER_FLOW",
+                "intent": "PLAN_PERMISSION_PROMPT",
+                "workflowState": "PLAN_PERMISSION",
+                "response": answer,
+                "sources": [],
+                "canStartNewConnection": True,
+                "updatedState": updated_state,
+            }
+
+    # Sub-step 1.6: Handle Permission to Show Plans Response
+    if session.get("awaiting_plan_permission"):
+        plan_permission_intent = classify_confirmation_intent(message)
+        if plan_permission_intent == "CONFIRM":
+            session["awaiting_plan_permission"] = False
             session["plans_shown"] = True
             plans = session.get("recommended_plans") or session.get("catalog_plans") or []
             qual = session.get("qualified_address") or {}
@@ -552,7 +644,7 @@ def handle_message(
             chunks = query_faq_collection(message, top_k=3)
             if chunks:
                 faq_answer = generate_grounded_faq_answer(message, chunks)
-                answer = f"{faq_answer}\n\n*(Note: Whenever you're ready to check local plan availability or book a connection, please share your PIN code or complete street address!)*"
+                answer = faq_answer
                 updated_state = state_for_response(state_from_session(session_id, session))
                 return {
                     "sessionId": session_id,
@@ -627,38 +719,21 @@ def handle_message(
                 break
 
     if not selected_plan and plans:
-        # Check if user is asking for help or a recommendation
-        plan_question_keywords = ["which", "recommend", "best", "gaming", "work", "wfh", "stream",
-                                   "budget", "cheap", "difference", "compare", "suited", "good for",
-                                   "fastest", "cheapest", "value", "family", "download", "upload",
-                                   "ott", "netflix", "hotstar", "speed", "mbps", "help", "suggest"]
-        is_plan_question = any(k in msg_low for k in plan_question_keywords)
-
-        if is_plan_question:
+        reco_intent = classify_plan_selection_intent(message)
+        if reco_intent == "RECOMMENDATION_REQUEST":
             session["recommendation_stage"] = 1
             session["recommendation_answers"] = []
-            answer = "I can help you find the best plan! Let me ask you 3 quick questions.\nFirst, how many users will be using the network?"
-            updated_state = state_for_response(state_from_session(session_id, session))
-            return {
-                "sessionId": session_id,
-                "conversationId": conversation_id,
-                "mode": "ORDER_FLOW",
-                "intent": "PLAN_RECOMMENDATION",
-                "workflowState": "PLAN_SELECTION",
-                "response": answer,
-                "sources": plans,
-                "canStartNewConnection": True,
-                "updatedState": updated_state,
-            }
+            answer = "I can help you find the best plan! Let me ask you 3 quick questions.\n\nFirst, how many users will be using the network?"
+        else:
+            chunks = query_faq_collection(message, top_k=3)
+            answer = generate_grounded_faq_answer(message, chunks)
 
-    if not selected_plan:
-        answer = "Tap any plan card above to select it, or ask me something like 'which plan is best for gaming?' to get a recommendation!"
         updated_state = state_for_response(state_from_session(session_id, session))
         return {
             "sessionId": session_id,
             "conversationId": conversation_id,
             "mode": "ORDER_FLOW",
-            "intent": "SELECT_PLAN",
+            "intent": "PLAN_SELECTION",
             "workflowState": "PLAN_SELECTION",
             "response": answer,
             "sources": plans,
