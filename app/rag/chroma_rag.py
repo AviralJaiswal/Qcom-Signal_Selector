@@ -130,7 +130,13 @@ def query_faq_collection(query: str, top_k: int = 3) -> List[str]:
 
     # 2. Priority check: If user query asks about plans, pricing, speeds, or available options,
     # ensure the Broadband Plans chunk is included at position 0.
-    is_plan_query = any(k in q_low for k in ["plan", "plans", "pricing", "price", "prices", "cost", "speed", "speeds", "rate", "rates", "offer", "offers", "available", "package", "packages"])
+    plan_keywords = [
+        "plan", "plans", "pricing", "price", "prices", "cost", "costs", "speed", "speeds",
+        "rate", "rates", "offer", "offers", "offering", "offerings", "available", "package",
+        "packages", "option", "options", "standard", "common", "broadband", "fiber", "fibre",
+        "tier", "tiers", "tell me"
+    ]
+    is_plan_query = any(k in q_low for k in plan_keywords)
     if is_plan_query:
         plan_chunk = next((c["text"] for c in all_chunks if "Broadband Plan Recommendations" in c.get("header", "") or "40 Mbps Basic Plan" in c["text"]), None)
         if plan_chunk:
@@ -159,27 +165,25 @@ def query_faq_collection(query: str, top_k: int = 3) -> List[str]:
 def generate_grounded_faq_answer(user_query: str, retrieved_chunks: List[str]) -> str:
     """Dynamic RAG synthesis grounded on telecom knowledge base via model prompt instructions."""
     context = "\n---\n".join(retrieved_chunks) if retrieved_chunks else ""
-    
-    prompt = f"""Generate a grounded customer-facing broadband FAQ answer using only the supplied knowledge context.
 
-Context:
-retrieved_context: {context}
-user_query: {user_query}
+    prompt = f"""Generate a clear, friendly, customer-facing answer strictly grounded on the supplied knowledge context.
 
-Guidelines:
-- If user_query is an address or location input (e.g. street address or PIN code), politely acknowledge the location and ask if they would like to verify coverage for a new connection. Do NOT list plans.
-- Do NOT list plans or pricing unless user_query explicitly asks to see plans, pricing, packages, or rates.
-- If retrieved_context is empty or irrelevant, answer only what is directly asked or state that the detail is not in our knowledge base.
+Knowledge Context:
+{context}
 
-Requirements:
-- Keep the tone clear, professional, and friendly.
-- Maximum 80 words.
-- No markdown formatting.
+Customer Query:
+{user_query}
+
+Instructions:
+- Answer the customer's query directly and accurately based on the Knowledge Context above.
+- If the query is about specific policy or info (e.g. Refund Policy, Installation Timelines, Hardware, SLA, KYC), summarize the exact details from the Knowledge Context.
+- If the query explicitly asks to see available plans or pricing, list the main Fiber Broadband plans (speeds & prices) from the context.
+- Keep the response professional, clear, and concise (under 120 words).
 """
 
     answer_text = None
     try:
-        answer_text = generate(prompt, temperature=0.4, timeout=8, max_tokens=180)
+        answer_text = generate(prompt, temperature=0.5, timeout=8, max_tokens=250)
     except Exception as exc:
         logger.warning("Grounded RAG synthesis warning: %s", exc)
 

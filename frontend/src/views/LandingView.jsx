@@ -1,17 +1,47 @@
-import React from 'react'
-import { Check, ChevronRight, MessageCircle, Sparkles, Wifi } from 'lucide-react'
+import React, { useState } from 'react'
+import { Check, ChevronRight, MessageCircle, Sparkles, Wifi, Zap, MapPin, Bot, ShieldCheck, Sun, Moon } from 'lucide-react'
 
-export function LandingView({ setView }) {
+export function LandingView({ setView, theme, setTheme }) {
+  const [spinning, setSpinning] = useState(false)
+
+  const handleStarClick = () => {
+    setSpinning(true)
+    setTimeout(() => setSpinning(false), 600)
+    if (setTheme) {
+      setTheme(theme === 'dark' ? 'light' : 'dark')
+    }
+  }
+
   return (
     <main className="landing-view">
       <section className="landing-copy">
-        <div className="eyebrow red-eyebrow"><Sparkles size={15} /> SWITCH ON THE WORLD</div>
-        <h1>Signal Selector<br /><em>Connected Intelligence.</em></h1>
+        <div
+          className={`eyebrow red-eyebrow theme-star-badge ${spinning ? 'spin-sparkle' : ''}`}
+          onClick={handleStarClick}
+          title="Click star to toggle Light Crimson / Midnight Dark theme!"
+          style={{ cursor: 'pointer', userSelect: 'none' }}
+        >
+          <Sparkles size={15} className={`star-icon ${spinning ? 'spinning-star' : ''}`} />
+          <span>SWITCH ON THE WORLD</span>
+          <span className="theme-toggle-indicator">
+            {theme === 'dark' ? <Moon size={11} /> : <Sun size={11} />}
+            {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+          </span>
+        </div>
+        <h1><span className="title-main">Signal Selector</span><br /><em>Connected Intelligence.</em></h1>
         <p>We help bring services and users together. Select your path to explore pincode-matched fiber plans or manage your existing service.</p>
-        <div className="trust-row">
+        
+        <div className="interactive-features-bar">
+          <div className="feature-tag"><Zap size={13} /> 1 Gbps Max Speed</div>
+          <div className="feature-tag"><MapPin size={13} /> Geocoded Coverage</div>
+          <div className="feature-tag"><Bot size={13} /> Gemini AI Powered</div>
+        </div>
+
+        <div className="trust-row" style={{ marginTop: '20px' }}>
           <span><Check size={15} /> Dynamic AI Recommendation</span>
           <span><Check size={15} /> Pincode Regional Filter</span>
           <span><Check size={15} /> Grounded RAG Support</span>
+          <span><Check size={15} /> Instant Plan Qualification</span>
         </div>
       </section>
 
@@ -29,8 +59,8 @@ export function LandingView({ setView }) {
           <button onClick={() => setView('general')} className="entry-btn red-hover">
             <span className="entry-icon red-icon"><Wifi size={19} /></span>
             <span>
-              <strong>GENERAL</strong>
-              <small>Explore fiber plans, verify pincode availability, get smart recommendations, and book a connection.</small>
+              <strong className="entry-title-text">GENERAL</strong>
+              <small className="entry-desc-text">Explore fiber plans, verify pincode availability, get smart recommendations, and book a connection.</small>
             </span>
             <ChevronRight size={17} />
           </button>
@@ -39,17 +69,18 @@ export function LandingView({ setView }) {
           <button onClick={() => setView('existing')} className="entry-btn red-hover">
             <span className="entry-icon dark-icon"><MessageCircle size={19} /></span>
             <span>
-              <strong>EXISTING CUSTOMERS</strong>
-              <small>Account support, connection troubleshooting, plan upgrades, and extra add-on services.</small>
+              <strong className="entry-title-text">EXISTING CUSTOMERS</strong>
+              <small className="entry-desc-text">Account support, connection troubleshooting, plan upgrades, and extra add-on services.</small>
             </span>
             <ChevronRight size={17} />
           </button>
         </div>
 
-        <div className="entry-note red-note">
-          <Check size={13} /> Prodapt Telecom AI Platform — Clean & Conversational.
+        <div className="entry-note red-note" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', paddingTop: '4px' }}>
+          <ShieldCheck size={14} style={{ color: '#E31B23' }} /> Prodapt Telecom AI Platform — Clean, Conversational & Intelligent.
         </div>
       </section>
     </main>
   )
 }
+

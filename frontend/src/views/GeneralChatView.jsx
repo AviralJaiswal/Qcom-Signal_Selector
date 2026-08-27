@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Check, CheckCircle2, Send, Sparkles, UserRound, Wifi } from 'lucide-react'
+import { ArrowLeft, Check, CheckCircle2, Send, Sparkles, UserRound, Wifi, MapPin, Zap, Bot, ShieldCheck, Clock } from 'lucide-react'
 import { request, dateKey, loadRazorpay } from '../utils/api'
 import { FormattedText } from '../components/FormattedText'
 import { Summary } from '../components/Summary'
@@ -411,11 +411,54 @@ export function GeneralChatView({ onBack }) {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Quick Suggestion Chips for General Section RAG Flow */}
+      {!order && !showPaymentGateway && (
+        <div className="quick-chips-wrapper">
+          <div className="chips-title">
+            <Sparkles size={12} style={{ color: '#E31B23' }} /> Quick Actions:
+          </div>
+          <div className="chips-row">
+            <button
+              type="button"
+              className="quick-chip"
+              disabled={busy}
+              onClick={() => send("Show available fiber plans")}
+            >
+              <Zap size={12} /> Show Fiber Plans
+            </button>
+            <button
+              type="button"
+              className="quick-chip"
+              disabled={busy}
+              onClick={() => send("Which plan is best for WFH and gaming?")}
+            >
+              <Bot size={12} /> Gaming & WFH Suggestion
+            </button>
+            <button
+              type="button"
+              className="quick-chip"
+              disabled={busy}
+              onClick={() => send("What is your refund policy?")}
+            >
+              <ShieldCheck size={12} /> Refund Policy
+            </button>
+            <button
+              type="button"
+              className="quick-chip"
+              disabled={busy}
+              onClick={() => send("What is the installation timeline?")}
+            >
+              <Clock size={12} /> Installation Timeline
+            </button>
+          </div>
+        </div>
+      )}
+
       <form className="other-composer" onSubmit={submitForm}>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={isExisting ? "Type your Name, Email, Phone number, or plan upgrade / add-on request..." : "Type your message..."}
+          placeholder="Type your message..."
           disabled={busy}
         />
         <button className="red-btn" disabled={busy || !input.trim()}><Send size={16} /></button>

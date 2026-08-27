@@ -223,9 +223,162 @@ html, body {
   position: sticky !important;
   top: 0 !important;
   z-index: 1000 !important;
-  background: #ffffff !important;
-  border-bottom: 1px solid #e5e7eb !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(227, 27, 35, 0.12) !important;
+  box-shadow: 0 4px 20px rgba(227, 27, 35, 0.05) !important;
+  padding: 0 clamp(16px, 4vw, 40px) !important;
+  height: 68px !important;
+}
+
+/* Top Accent Red Gradient Hairline */
+.topbar::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 3px !important;
+  background: linear-gradient(90deg, #E31B23 0%, #FF4D52 50%, #B80E16 100%) !important;
+}
+
+.brand-interactive {
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  cursor: pointer !important;
+  padding: 4px 8px !important;
+  border-radius: 12px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.brand-interactive:hover {
+  background: #FFF0F1 !important;
+  transform: translateY(-1px) scale(1.01) !important;
+}
+
+.brand-logo-text {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: #E31B23 !important;
+  letter-spacing: -0.5px !important;
+  font-family: 'Arial', sans-serif !important;
+  line-height: 1 !important;
+}
+
+.brand-divider {
+  color: #E5E7EB !important;
+  font-size: 20px !important;
+  font-weight: 300 !important;
+  margin: 0 2px !important;
+}
+
+.brand-title {
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  color: #1F2937 !important;
+  letter-spacing: -0.3px !important;
+}
+
+.brand-ai-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  background: linear-gradient(135deg, #FFF0F1, #FFE5E7) !important;
+  color: #E31B23 !important;
+  border: 1px solid #FEE2E2 !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  padding: 2px 8px !important;
+  border-radius: 20px !important;
+  margin-left: 4px !important;
+  box-shadow: 0 2px 6px rgba(227, 27, 35, 0.08) !important;
+}
+
+/* Interactive Top Navigation Tabs */
+.top-nav-tabs {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: #F8FAFC !important;
+  border: 1px solid #F1F5F9 !important;
+  padding: 4px !important;
+  border-radius: 16px !important;
+}
+
+.nav-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: transparent !important;
+  color: #4B5563 !important;
+  border: 1px solid transparent !important;
+  padding: 6px 14px !important;
+  border-radius: 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.nav-tab:hover {
+  background: #FFFFFF !important;
+  color: #E31B23 !important;
+  border-color: #FEE2E2 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(227, 27, 35, 0.08) !important;
+}
+
+.nav-tab.active {
+  background: #FFFFFF !important;
+  color: #E31B23 !important;
+  border-color: #FFCCD0 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(227, 27, 35, 0.12) !important;
+}
+
+.nav-tab.active svg {
+  color: #E31B23 !important;
+}
+
+/* Live Status Radar Indicator */
+.live-status-badge {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  background: #F0FDF4 !important;
+  border: 1px solid #DCFCE7 !important;
+  padding: 5px 12px !important;
+  border-radius: 20px !important;
+}
+
+.radar-ping {
+  position: absolute !important;
+  left: 12px !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #10B981 !important;
+  animation: radarPulse 1.8s infinite ease-out !important;
+}
+
+@keyframes radarPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.status-text {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #065F46 !important;
 }
 
 .app-shell {
@@ -233,7 +386,10 @@ html, body {
   max-height: 100vh !important;
   display: flex !important;
   flex-direction: column !important;
-  background: #f8fafc !important;
+  background: radial-gradient(circle at 12% 18%, rgba(227, 27, 35, 0.09) 0%, transparent 40%),
+              radial-gradient(circle at 88% 82%, rgba(227, 27, 35, 0.07) 0%, transparent 45%),
+              radial-gradient(circle at 50% 40%, rgba(255, 240, 241, 0.85) 0%, transparent 65%),
+              linear-gradient(180deg, #FAFAFD 0%, #F1F4F9 100%) !important;
   overflow: hidden !important;
 }
 
@@ -290,5 +446,412 @@ html, body {
   background: #ffffff !important;
   border-top: 1px solid #f1f5f9 !important;
 }
+
+/* Interactive Animations & Micro-Interactions in Prodapt Red & White Theme */
+@keyframes pulseDot {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+@keyframes redGlowPulse {
+  0% { box-shadow: 0 0 0 0 rgba(227, 27, 35, 0.2); }
+  50% { box-shadow: 0 0 12px 2px rgba(227, 27, 35, 0.35); }
+  100% { box-shadow: 0 0 0 0 rgba(227, 27, 35, 0.2); }
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.green-dot {
+  animation: pulseDot 2s infinite !important;
+}
+
+/* Topbar Brand & Navigation Hover Effects */
+.brand {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.brand:hover {
+  transform: translateY(-1px) scale(1.015) !important;
+}
+.brand:hover span:first-child {
+  text-shadow: 0 2px 10px rgba(227, 27, 35, 0.25) !important;
+}
+
+.topbar {
+  border-top: 3px solid #E31B23 !important;
+}
+
+/* Quick Suggestion Chips Component */
+.quick-chips-wrapper {
+  padding: 10px 22px 4px !important;
+  background: #FFFFFF !important;
+  border-top: 1px solid #F3F4F6 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  animation: slideUpFade 0.3s ease-out !important;
+}
+
+.chips-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #9CA3AF !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+}
+
+.chips-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+.quick-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: #FFF0F1 !important;
+  color: #B80E16 !important;
+  border: 1px solid #FEE2E2 !important;
+  padding: 6px 12px !important;
+  border-radius: 20px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  font-family: 'DM Sans', sans-serif !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 1px 3px rgba(227, 27, 35, 0.05) !important;
+}
+
+.quick-chip:hover {
+  background: #E31B23 !important;
+  color: #FFFFFF !important;
+  border-color: #E31B23 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(227, 27, 35, 0.25) !important;
+}
+
+.quick-chip:active {
+  transform: translateY(0) scale(0.97) !important;
+}
+
+.quick-chip svg {
+  color: currentColor !important;
+  transition: transform 0.2s ease !important;
+}
+
+.quick-chip:hover svg {
+  transform: scale(1.1) !important;
+}
+
+/* Landing View Interactive Cards & Hero Depth Enhancements */
+.landing-view {
+  position: relative !important;
+}
+
+.landing-copy h1 {
+  font: 800 clamp(38px, 4.5vw, 56px)/1.05 'Space Grotesk', sans-serif !important;
+  letter-spacing: -2px !important;
+  margin: 14px 0 20px !important;
+  color: #0F172A !important;
+}
+
+.landing-copy h1 span.title-main {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 55%, #E31B23 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.landing-copy h1 em {
+  background: linear-gradient(110deg, #E31B23 0%, #FF383E 50%, #A60C12 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-style: normal !important;
+  font-weight: 800 !important;
+}
+
+.landing-copy p {
+  color: #475569 !important;
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+}
+
+/* Glassmorphism Rich Entry Card */
+.entry-card {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 245, 246, 0.94) 100%) !important;
+  border: 1px solid rgba(227, 27, 35, 0.16) !important;
+  box-shadow: 0 30px 70px -15px rgba(227, 27, 35, 0.13), 0 0 0 1px rgba(255, 255, 255, 0.9) inset !important;
+  border-radius: 24px !important;
+  padding: 28px !important;
+  backdrop-filter: blur(16px) !important;
+}
+
+.entry-btn {
+  position: relative !important;
+  overflow: hidden !important;
+  background: linear-gradient(145deg, #FFFFFF 0%, #FFF8F8 100%) !important;
+  border: 1px solid rgba(227, 27, 35, 0.14) !important;
+  box-shadow: 0 6px 20px rgba(227, 27, 35, 0.05) !important;
+  border-radius: 16px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.entry-btn.red-hover:hover {
+  background: linear-gradient(145deg, #FFFFFF 0%, #FFF0F1 100%) !important;
+  border-color: #E31B23 !important;
+  transform: translateY(-3px) scale(1.01) !important;
+  box-shadow: 0 14px 32px rgba(227, 27, 35, 0.2) !important;
+}
+
+.entry-btn.red-hover:hover .entry-icon.red-icon {
+  background: #E31B23 !important;
+  color: #FFFFFF !important;
+  transform: scale(1.08) rotate(-3deg) !important;
+}
+
+.entry-btn.red-hover:hover .entry-icon.dark-icon {
+  background: #1F2937 !important;
+  color: #FFFFFF !important;
+  transform: scale(1.08) rotate(3deg) !important;
+}
+
+.entry-btn .entry-icon {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.entry-btn > svg {
+  transition: transform 0.25s ease, color 0.25s ease !important;
+}
+
+.entry-btn.red-hover:hover > svg {
+  transform: translateX(4px) !important;
+  color: #E31B23 !important;
+}
+
+/* Interactive Star Theme Badge & Spin Animation */
+.theme-star-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  background: #FFF0F1 !important;
+  color: #E31B23 !important;
+  border: 1px solid #FEE2E2 !important;
+  padding: 6px 14px !important;
+  border-radius: 20px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 2px 8px rgba(227, 27, 35, 0.08) !important;
+}
+
+.theme-star-badge:hover {
+  background: #E31B23 !important;
+  color: #FFFFFF !important;
+  border-color: #E31B23 !important;
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 6px 18px rgba(227, 27, 35, 0.3) !important;
+}
+
+.theme-star-badge:hover .theme-toggle-indicator {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #FFFFFF !important;
+}
+
+.theme-toggle-indicator {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  background: #FFE4E6 !important;
+  color: #BE123C !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  transition: all 0.2s ease !important;
+}
+
+.star-icon {
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.spinning-star {
+  animation: starSpin 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+@keyframes starSpin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.35); color: #FFD700; }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* Interactive Floating Features Bar (Single Line) */
+.interactive-features-bar {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-top: 22px !important;
+  width: 100% !important;
+}
+
+.feature-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  white-space: nowrap !important;
+  background: linear-gradient(135deg, #FFF0F1 0%, #FFE4E6 100%) !important;
+  border: 1px solid rgba(227, 27, 35, 0.22) !important;
+  padding: 6px 12px !important;
+  border-radius: 12px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #990B11 !important;
+  box-shadow: 0 3px 10px rgba(227, 27, 35, 0.08) !important;
+  flex: 0 0 auto !important;
+  transition: all 0.2s ease !important;
+}
+
+.feature-tag:hover {
+  border-color: #E31B23 !important;
+  color: #E31B23 !important;
+  background: #FFFFFF !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 18px rgba(227, 27, 35, 0.16) !important;
+}
+
+/* Trust Features Grid (2x2 Column Alignment) */
+.trust-row {
+  display: grid !important;
+  grid-template-columns: repeat(2, max-content) !important;
+  column-gap: 24px !important;
+  row-gap: 10px !important;
+  margin-top: 22px !important;
+  color: #475569 !important;
+  font-size: 13px !important;
+}
+
+.trust-row span {
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+}
+
+.trust-row svg {
+  color: #E31B23 !important;
+  flex-shrink: 0 !important;
+}
+
+/* ==========================================================================
+   MIDNIGHT DARK EXECUTIVE THEME OVERRIDES (.dark-mode)
+   ========================================================================== */
+.app-shell.dark-mode {
+  background: radial-gradient(circle at 12% 18%, rgba(227, 27, 35, 0.18) 0%, transparent 40%),
+              radial-gradient(circle at 88% 82%, rgba(227, 27, 35, 0.14) 0%, transparent 45%),
+              radial-gradient(circle at 50% 40%, rgba(30, 41, 59, 0.8) 0%, transparent 65%),
+              linear-gradient(180deg, #0B0F19 0%, #111827 100%) !important;
+}
+
+.dark-mode .topbar {
+  background: rgba(15, 23, 42, 0.92) !important;
+  border-bottom-color: rgba(227, 27, 35, 0.25) !important;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark-mode .brand-title {
+  color: #F8FAFC !important;
+}
+
+.dark-mode .landing-copy h1 span.title-main {
+  background: linear-gradient(135deg, #FFFFFF 0%, #E2E8F0 55%, #FF4D52 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.dark-mode .landing-copy p {
+  color: #94A3B8 !important;
+}
+
+.dark-mode .trust-row {
+  color: #CBD5E1 !important;
+}
+
+.dark-mode .entry-card {
+  background: linear-gradient(165deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.97) 100%) !important;
+  border-color: rgba(227, 27, 35, 0.3) !important;
+  box-shadow: 0 35px 80px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08) inset !important;
+}
+
+.dark-mode .entry-card strong {
+  color: #F8FAFC !important;
+}
+
+.dark-mode .entry-card small {
+  color: #94A3B8 !important;
+}
+
+.dark-mode .entry-btn {
+  background: linear-gradient(145deg, #1E293B 0%, #0F172A 100%) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark-mode .entry-btn.red-hover:hover {
+  background: linear-gradient(145deg, #334155 0%, #1E293B 100%) !important;
+  border-color: #E31B23 !important;
+  box-shadow: 0 14px 35px rgba(227, 27, 35, 0.3) !important;
+}
+
+.dark-mode .entry-title-text {
+  color: #F8FAFC !important;
+}
+
+.dark-mode .entry-desc-text {
+  color: #CBD5E1 !important;
+}
+
+.dark-mode .theme-star-badge {
+  background: rgba(227, 27, 35, 0.15) !important;
+  color: #FF6B70 !important;
+  border-color: rgba(227, 27, 35, 0.35) !important;
+}
+
+.dark-mode .theme-toggle-indicator {
+  background: #E31B23 !important;
+  color: #FFFFFF !important;
+}
+
+/* Card Entrance Slide Up Animation */
+.other-message, .plan-card, .summary-card, .appointment-picker-card {
+  animation: slideUpFade 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* General Chat Back Button Hover */
+.back-link {
+  transition: transform 0.2s ease, color 0.2s ease !important;
+}
+.back-link:hover {
+  transform: translateX(-3px) !important;
+  color: #E31B23 !important;
+}
+
+/* Red Hover Button Polish */
+.other-composer button {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.other-composer button:hover:not(:disabled) {
+  transform: scale(1.06) !important;
+  box-shadow: 0 4px 14px rgba(227, 27, 35, 0.35) !important;
+}
+
 
 
