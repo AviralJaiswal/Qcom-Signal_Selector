@@ -99,8 +99,8 @@ def init_faq_chroma() -> bool:
             collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
             logger.info("Successfully loaded %d chunks into ChromaDB collection '%s'", len(chunks), COLLECTION_NAME)
             return True
-    except Exception as exc:
-        logger.exception("Failed to initialize ChromaDB collection '%s': %s", COLLECTION_NAME, exc)
+    except BaseException as exc:
+        logger.warning("ChromaDB initialization note for collection '%s': %s", COLLECTION_NAME, exc)
     return False
 
 
@@ -125,7 +125,7 @@ def query_faq_collection(query: str, top_k: int = 3) -> List[str]:
 
         res = collection.query(query_texts=[query], n_results=min(top_k, max(1, collection.count())))
         docs = (res.get("documents") or [[]])[0]
-    except Exception as exc:
+    except BaseException as exc:
         logger.warning("ChromaDB query failed: %s. Using markdown chunk fallback.", exc)
 
     # 2. Priority check: If user query asks about plans, pricing, speeds, or available options,
@@ -160,26 +160,26 @@ def generate_grounded_faq_answer(user_query: str, retrieved_chunks: List[str]) -
     """Dynamic RAG synthesis grounded on telecom knowledge base via model prompt instructions."""
     context = "\n---\n".join(retrieved_chunks) if retrieved_chunks else ""
     
-    prompt = f"""Generate a grounded customer-facing broadband FAQ answer using only the supplied knowledge context and standard plan facts.
+    prompt = f"""Generate a grounded customer-facing broadband FAQ answer using only the supplied knowledge context.
 
 Context:
 retrieved_context: {context}
 user_query: {user_query}
-- If retrieved_context is empty, answer only from the standard plan facts below or say the detail is not available.
-- If user_query is ambiguous, answer the most likely broadband FAQ without inventing policy or technical details.
+
+Guidelines:
+- If user_query is an address or location input (e.g. street address or PIN code), politely acknowledge the location and ask if they would like to verify coverage for a new connection. Do NOT list plans.
+- Do NOT list plans or pricing unless user_query explicitly asks to see plans, pricing, packages, or rates.
+- If retrieved_context is empty or irrelevant, answer only what is directly asked or state that the detail is not in our knowledge base.
 
 Requirements:
 - Keep the tone clear, professional, and friendly.
-- Maximum 90 words.
-- No markdown.
-- Plan FAQ: for general plan, pricing, speed, package, or recommendation questions before ordering, list the standard India-wide plans with rates when relevant: Basic 40M 40 Mbps Rs.499/month; Standard 100M 100 Mbps Rs.799/month with Disney+ Hotstar; Entertainment 200M 200 Mbps Rs.999/month with Hotstar, Prime, Zee5; Professional 300M 300 Mbps Rs.1499/month with Netflix, Prime, Hotstar, SonyLIV, Zee5; Max 500M 500 Mbps Rs.2499/month; Infinity 1G 1 Gbps Rs.3999/month.
-- Service FAQ: for installation, Wi-Fi router, KYC, SLA, refund, troubleshooting, policy, or support questions, answer directly from retrieved_context. Do not ask for address or location for those questions or for general plan questions.
-- Order intent: if and only if user_query explicitly asks to check coverage/serviceability or purchase/get a new connection, ask for complete street address and PIN code. Both complete street address and PIN code are mandatory for exact premise qualification. If the customer is not ready to share an address, say they can share it whenever you're ready.
+- Maximum 80 words.
+- No markdown formatting.
 """
 
     answer_text = None
     try:
-        answer_text = generate(prompt, temperature=0.4, timeout=8, max_tokens=220)
+        answer_text = generate(prompt, temperature=0.4, timeout=8, max_tokens=180)
     except Exception as exc:
         logger.warning("Grounded RAG synthesis warning: %s", exc)
 

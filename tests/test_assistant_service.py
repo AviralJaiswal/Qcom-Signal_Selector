@@ -66,8 +66,45 @@ class AssistantServiceTests(unittest.TestCase):
         self.assertIn("complete street address", call_args)
         self.assertIn("Do NOT ask for just a 6-digit pincode", call_args)
 
+    @patch("app.assistant.service.generate", return_value="Your address at Kisan Chowk, 201012 Ghaziabad, India is verified as serviceable.\nConfirming this allows us to proceed with showing the available fiber plans in your region.")
+    def test_address_confirmation_prompt_enforces_question(self, mock_generate):
+        from app.assistant.service import _generate_address_confirmation_prompt
+        prompt_res = _generate_address_confirmation_prompt("Kisan Chowk, 201012 Ghaziabad, India")
+        lines = prompt_res.split("\n")
+        self.assertIn("?", lines[0])
+        self.assertIn("Is this your correct address?", lines[0])
+        self.assertIn("Confirming this allows us to proceed", lines[1])
+
+    @patch("app.assistant.service.classify_conversation_route", return_value="TRANSACTION")
+    @patch("app.assistant.service.recommend", return_value=[{"plan_id": "P100", "name": "Basic 100", "price_inr": 499}])
+    @patch("app.assistant.service.qualify", return_value={"serviceable": True, "requires_full_address": False, "address_qualified": True, "formatted_address": "Kisan Chowk, 201012 Ghaziabad", "city": "Ghaziabad", "state": "Uttar Pradesh"})
+    @patch("app.assistant.service._generate_address_confirmation_prompt", return_value="Your address at Kisan Chowk is verified. Is this your correct address?\nConfirming allows us to show plans.")
+    @patch("app.assistant.service._generate_escape_reset_message", return_value="No problem! Please share your correct complete street address.")
+    def test_deny_address_resets_state_and_hides_plans(self, mock_reset_prompt, mock_confirm_prompt, mock_qualify, mock_recommend, mock_classify_route):
+        initialize_session("deny-session")
+
+        # Step 1: Provide valid street address & pincode
+        res1 = handle_message("deny-session", "Kisan Chowk 201012", db=MagicMock())
+        self.assertEqual(res1["intent"], "CONFIRM_ADDRESS_PROMPT")
+        self.assertTrue(session_store.get("deny-session")["awaiting_address_confirmation"])
+
+        # Step 2: User responds with "No"
+        res2 = handle_message("deny-session", "No", db=MagicMock())
+        self.assertEqual(res2["intent"], "PROMPT_STREET_ADDRESS")
+        self.assertIn("correct complete street address", res2["response"])
+        self.assertEqual(res2["sources"], [])
+
+        # Check updated state
+        updated_state = res2["updatedState"]
+        self.assertFalse(updated_state["address_qualified"])
+        self.assertFalse(updated_state["address_confirmed"])
+        self.assertFalse(updated_state["plans_shown"])
+        self.assertEqual(updated_state["catalog_plans"], [])
+        self.assertEqual(updated_state["recommended_plans"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 

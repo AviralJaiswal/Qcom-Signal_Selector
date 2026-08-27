@@ -41,33 +41,61 @@ def _conversation_id(session: dict) -> str:
 
 
 @trace
+def _reset_address_state(session: dict) -> None:
+    """Reset all address, qualification, and plan selection fields in session."""
+    session["pincode"] = None
+    session["street_address"] = None
+    session["qualified_address"] = None
+    session["address_qualified"] = False
+    session["address_confirmed"] = False
+    session["awaiting_address_confirmation"] = False
+    session["awaiting_plan_permission"] = False
+    session["plans_shown"] = False
+    session["catalog_plans"] = []
+    session["recommended_plans"] = []
+    session["requires_full_address"] = False
+    session["address_prompt_count"] = 0
+    session["recommendation_stage"] = 0
+    session["recommendation_answers"] = []
+
+
+@trace
 def _generate_address_confirmation_prompt(formatted_address: str) -> str:
-    """Generate a dynamic 1-line LLM question asking user to confirm address ONLY."""
+    """Generate a dynamic 2-line LLM message: Line 1 asks to confirm address, Line 2 explains proceeding to plans."""
     prompt = (
-        """Generate a short customer-facing message asking the customer to confirm a verified service address.
+        """Generate a short 2-line customer-facing message for a verified broadband service address.
 
 Context:
 formatted_address: {formatted_address}
 - If formatted_address is missing or empty, refer to "your submitted address" and do not invent address details.
 
 Requirements:
-- State that the location is verified and serviceable.
-- Ask only whether this is the customer's correct address.
-- Do not ask about viewing plans, booking, payment, or any next step.
-- Use one sentence.
-- Maximum 20 words.
-- No markdown.
+- Line 1: State that the address is verified as serviceable, and explicitly ask: "Is this your correct address?"
+- Line 2: On a new line, state that confirming this allows us to proceed with showing the available fiber plans in your region.
+- Line 1 MUST contain a question asking if the address is correct (ending with a question mark).
+- Line 2 must be an explanatory statement starting with phrases like "So we can proceed...", "Once confirmed...", or "Confirming this allows us to...".
+- Put Line 2 on its own line using a newline character.
+- Do not mention booking, payment, appointments, or customer details.
+- Maximum 35 words total.
+- No markdown formatting.
 """
     ).format(
         formatted_address=formatted_address or ""
     )
     try:
-        text = generate(prompt, temperature=0.7, timeout=5, max_tokens=50)
+        text = generate(prompt, temperature=0.7, timeout=5, max_tokens=70)
         if text and len(text.strip()) > 10:
-            return text.strip()
+            cleaned = text.strip()
+            if "\n" not in cleaned:
+                cleaned = re.sub(r"(\.|\!|\?)\s+(So |Confirming |Once |This will |Proceeding )", r"\1\n\2", cleaned)
+            lines = cleaned.split("\n")
+            if "?" not in lines[0]:
+                lines[0] = lines[0].rstrip(".") + ". Is this your correct address?"
+                cleaned = "\n".join(lines)
+            return cleaned
     except Exception as exc:
         logger.warning("LLM address confirmation prompt error: %s", exc)
-    return f"We've verified your location at {formatted_address} as serviceable! Is this your correct address?"
+    return f"Your address at {formatted_address} is verified as serviceable. Is this your correct address?\nConfirming this allows us to proceed with showing the available fiber plans in your region."
 
 
 @trace
@@ -126,9 +154,13 @@ Requirements:
         logger.warning("LLM confirmation intent classification error: %s", exc)
 
     low = message.lower().strip()
-    if any(w in low for w in ["yes", "yeah", "yep", "sure", "ok", "correct", "confirm", "right", "show", "proceed", "agreed", "please"]):
+    words = set(re.findall(r"\b\w+\b", low))
+    confirm_words = {"yes", "yeah", "yep", "sure", "ok", "okay", "correct", "confirm", "right", "show", "proceed", "agreed", "please"}
+    deny_words = {"no", "nope", "wrong", "change", "incorrect", "different", "cancel"}
+
+    if any(w in words for w in confirm_words):
         return "CONFIRM"
-    if any(w in low for w in ["no", "nope", "wrong", "change", "incorrect", "different", "cancel"]):
+    if any(w in words for w in deny_words):
         return "DENY"
     return "OTHER"
 
@@ -435,6 +467,9 @@ def _extract_pincode(text: str) -> str | None:
 def _is_escape_intent(text: str) -> bool:
     """Detect if user wants to reset, change address, or leave the current sub-flow."""
     low = text.lower().strip()
+    words = set(re.findall(r"\b\w+\b", low))
+    if "no" in words or "nope" in words:
+        return True
     escape_phrases = (
         "change address", "different address", "wrong address", "go back",
         "start over", "cancel", "reset", "new address", "change pincode",
@@ -515,16 +550,33 @@ def handle_message(
         session.update({k: v for k, v in structured_fields.items() if v is not None})
 
     # ONE-WAY STATE MACHINE GUARDRAIL:
-    # If user asks to reset/change location or start over, unlock RAG mode
+    # If user asks to reset/change location or start over:
     if _is_escape_intent(message):
-        session["pincode"] = None
-        session["street_address"] = None
-        session["requires_full_address"] = False
-        session["address_qualified"] = False
-        session["address_confirmed"] = False
-        session["awaiting_address_confirmation"] = False
-        session["address_prompt_count"] = 0
-        session["mode"] = "RAG"
+        was_in_order = (
+            current_mode == "ORDER_FLOW"
+            or session.get("awaiting_address_confirmation")
+            or session.get("address_qualified")
+            or session.get("pincode")
+            or session.get("street_address")
+        )
+        _reset_address_state(session)
+        if was_in_order:
+            session["mode"] = "ORDER_FLOW"
+            answer = _generate_escape_reset_message()
+            updated_state = state_for_response(state_from_session(session_id, session))
+            return {
+                "sessionId": session_id,
+                "conversationId": conversation_id,
+                "mode": "ORDER_FLOW",
+                "intent": "PROMPT_STREET_ADDRESS",
+                "workflowState": "ADDRESS_QUALIFICATION",
+                "response": answer,
+                "sources": [],
+                "canStartNewConnection": True,
+                "updatedState": updated_state,
+            }
+        else:
+            session["mode"] = "RAG"
     elif current_mode == "ORDER_FLOW" or current_mode == "ORDER_COMPLETED":
         session["mode"] = "ORDER_FLOW"
     else:
@@ -641,11 +693,8 @@ def handle_message(
     if session.get("awaiting_address_confirmation"):
         confirm_intent = classify_confirmation_intent(message)
         if confirm_intent == "DENY":
-            session["awaiting_address_confirmation"] = False
-            session["address_qualified"] = False
-            session["street_address"] = None
-            session["plans_shown"] = False
-            answer = _generate_prompt_complete_address()
+            _reset_address_state(session)
+            answer = _generate_escape_reset_message()
             updated_state = state_for_response(state_from_session(session_id, session))
             return {
                 "sessionId": session_id,
@@ -661,28 +710,6 @@ def handle_message(
         elif confirm_intent == "CONFIRM":
             session["awaiting_address_confirmation"] = False
             session["address_confirmed"] = True
-            session["awaiting_plan_permission"] = True
-            session["plans_shown"] = False
-            qual = session.get("qualified_address") or {}
-            formatted_addr = qual.get("formatted_address") or session.get("pincode", "")
-            answer = _generate_plan_permission_prompt(formatted_addr)
-            updated_state = state_for_response(state_from_session(session_id, session))
-            return {
-                "sessionId": session_id,
-                "conversationId": conversation_id,
-                "mode": "ORDER_FLOW",
-                "intent": "PLAN_PERMISSION_PROMPT",
-                "workflowState": "PLAN_PERMISSION",
-                "response": answer,
-                "sources": [],
-                "canStartNewConnection": True,
-                "updatedState": updated_state,
-            }
-
-    # Sub-step 1.6: Handle Permission to Show Plans Response
-    if session.get("awaiting_plan_permission"):
-        plan_permission_intent = classify_confirmation_intent(message)
-        if plan_permission_intent == "CONFIRM":
             session["awaiting_plan_permission"] = False
             session["plans_shown"] = True
             plans = session.get("recommended_plans") or session.get("catalog_plans") or []

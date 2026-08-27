@@ -136,6 +136,11 @@ export function GeneralChatView({ onBack }) {
     send(`Selected plan: ${plan.name}`, null, { action: 'PLAN_SELECTED', selected_plan: plan })
   }
 
+  const handleSaveEditedCustomer = (updatedCustomer) => {
+    setCustomer(updatedCustomer)
+    send('', null, { customer: updatedCustomer })
+  }
+
   const submitCustomer = (e) => {
     e.preventDefault()
     if (!customer.name.trim() || !/^\d{10}$/.test(customer.phone) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)) {
@@ -297,6 +302,7 @@ export function GeneralChatView({ onBack }) {
 
       <div className="other-messages">
         {(() => {
+          const lastAppointmentMsgIndex = messages.findLastIndex((m) => m.role === 'assistant' && (m.content?.includes('installation appointment slot') || m.content?.includes('Contact details saved')))
           return messages.map((item, index) => {
             const isHiddenUserMessage = item.role === 'user' && (item.content.startsWith('Selected plan:') || item.content.startsWith('📅 Selected Installation Slot:'))
             if (isHiddenUserMessage) return null
@@ -306,12 +312,17 @@ export function GeneralChatView({ onBack }) {
               const nameMatch = item.content.match(/Name:\s*(.*)/)
               const phoneMatch = item.content.match(/Phone:\s*(.*)/)
               const emailMatch = item.content.match(/Email:\s*(.*)/)
+              const cName = customer.name || (nameMatch ? nameMatch[1].trim() : '')
+              const cPhone = customer.phone || (phoneMatch ? phoneMatch[1].trim() : '')
+              const cEmail = customer.email || (emailMatch ? emailMatch[1].trim() : '')
               return (
                 <SavedCustomerCard
                   key={index}
-                  custName={nameMatch ? nameMatch[1].trim() : ''}
-                  custPhone={phoneMatch ? phoneMatch[1].trim() : ''}
-                  custEmail={emailMatch ? emailMatch[1].trim() : ''}
+                  custName={cName}
+                  custPhone={cPhone}
+                  custEmail={cEmail}
+                  onSave={handleSaveEditedCustomer}
+                  busy={busy}
                 />
               )
             }
@@ -328,7 +339,7 @@ export function GeneralChatView({ onBack }) {
                       selectPlan={selectPlan}
                       busy={busy}
                     />
-                    {item.role === 'assistant' && (item.content.includes('installation appointment slot') || item.content.includes('Contact details saved')) && (
+                    {item.role === 'assistant' && index === lastAppointmentMsgIndex && (
                       <AppointmentPicker
                         state={state}
                         chosenDate={chosenDate}

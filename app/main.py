@@ -49,9 +49,10 @@ async def lifespan(app_instance: FastAPI):
         Base.metadata.create_all(bind=engine)
         from app.rag.chroma_rag import init_faq_chroma
         init_faq_chroma()
-    except Exception as exc:
+    except BaseException as exc:
         print("Startup initialization note:", exc)
     yield
+
 
 settings = get_settings()
 
