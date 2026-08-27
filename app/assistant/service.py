@@ -3,7 +3,7 @@
 Architectural Workflow:
 1. RAG FAQ Flow (Default): Answers general telecom FAQs, router specs, SLAs, and troubleshooting grounded strictly in data/faq_knowledge_base.md using pure LangChain RAG (no LangGraph).
 2. Transition Guardrail: One-way state transition from RAG to ORDER_FLOW triggered by address/pincode input or explicit ordering intent. Once locked in ORDER_FLOW, session CANNOT revert to RAG.
-3. Order Flow: Address qualification (Ola Maps API) -> Regional plan cards -> LLM Plan Recommendation Assistant (Non-RAG) -> Customer Details -> Installation Appointment -> Payment & Order Creation.
+3. Order Flow: Address qualification (Mapbox with Nominatim fallback) -> Regional plan cards -> LLM Plan Recommendation Assistant (Non-RAG) -> Customer Details -> Installation Appointment -> Payment & Order Creation.
 """
 from __future__ import annotations
 
@@ -26,10 +26,12 @@ from app.services.order_service import create_order
 from app.services.payment_service import create_purl, confirm_payment
 from app.services.plan_service import recommend
 from app.services.welcome_service import generate_dynamic_greeting
+from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
 
 
+@trace
 def _conversation_id(session: dict) -> str:
     conversation_id = session.get("conversation_id")
     if not conversation_id:
@@ -38,12 +40,26 @@ def _conversation_id(session: dict) -> str:
     return conversation_id
 
 
+@trace
 def _generate_address_confirmation_prompt(formatted_address: str) -> str:
     """Generate a dynamic 1-line LLM question asking user to confirm address ONLY."""
     prompt = (
-        f"The user's street address has been verified as: '{formatted_address}'. "
-        f"Write a 1-sentence message stating that this location is verified and serviceable, "
-        "and ask ONLY: 'Is this your correct address?' Do NOT ask about showing plans yet. Keep it under 20 words total. No markdown."
+        """Generate a short customer-facing message asking the customer to confirm a verified service address.
+
+Context:
+formatted_address: {formatted_address}
+- If formatted_address is missing or empty, refer to "your submitted address" and do not invent address details.
+
+Requirements:
+- State that the location is verified and serviceable.
+- Ask only whether this is the customer's correct address.
+- Do not ask about viewing plans, booking, payment, or any next step.
+- Use one sentence.
+- Maximum 20 words.
+- No markdown.
+"""
+    ).format(
+        formatted_address=formatted_address or ""
     )
     try:
         text = generate(prompt, temperature=0.7, timeout=5, max_tokens=50)
@@ -54,12 +70,26 @@ def _generate_address_confirmation_prompt(formatted_address: str) -> str:
     return f"We've verified your location at {formatted_address} as serviceable! Is this your correct address?"
 
 
+@trace
 def _generate_plan_permission_prompt(formatted_address: str) -> str:
     """Generate a dynamic 1-sentence LLM question asking permission to show fiber plans."""
     prompt = (
-        f"The user confirmed their address at '{formatted_address}'. "
-        "Write a friendly 1-sentence question asking: "
-        "'Shall I show the available fiber plans for your location?' Keep it under 20 words total. No markdown."
+        """Generate a short customer-facing question asking permission to show available fiber plans.
+
+Context:
+formatted_address: {formatted_address}
+- If formatted_address is missing or empty, say "your confirmed address" and do not invent address details.
+
+Requirements:
+- Acknowledge that the address is confirmed.
+- Ask whether to show available fiber plans for that location.
+- Do not mention payment, booking, appointment, or customer details.
+- Use one sentence.
+- Maximum 20 words.
+- No markdown.
+"""
+    ).format(
+        formatted_address=formatted_address or ""
     )
     try:
         text = generate(prompt, temperature=0.7, timeout=5, max_tokens=50)
@@ -70,18 +100,24 @@ def _generate_plan_permission_prompt(formatted_address: str) -> str:
     return "Great! Address confirmed. Shall I show the available high-speed fiber plans for your location?"
 
 
+@trace
 def classify_confirmation_intent(message: str) -> str:
     """Classify user confirmation response into CONFIRM, DENY, or OTHER using LLM JSON mode."""
-    prompt = f"""Classify the user's response to a yes/no question in a conversational broadband setup.
-User message: "{message}"
+    prompt = """Classify the customer's response to the current yes/no broadband-flow question.
 
-Return JSON strictly like:
-{{"intent": "CONFIRM"}}  (if user confirms, agrees, says yes, correct, yeah, sure, ok, show plans, proceed, etc.)
-or
-{{"intent": "DENY"}}     (if user disagrees, says no, wrong address, incorrect, change address, cancel, etc.)
-or
-{{"intent": "OTHER"}}    (if user asks a question, changes topic, or provides unrelated input)
-"""
+Context:
+message: {message}
+- If message is empty, vague, or unrelated to the yes/no question, classify it as OTHER.
+
+Requirements:
+- Return exactly one JSON object with one key named "intent".
+- intent must be exactly one of: CONFIRM, DENY, OTHER.
+- Use CONFIRM when the customer agrees, confirms, says the address is correct, asks to proceed, or asks to show plans.
+- Use DENY when the customer disagrees, says the address is wrong, wants a different address, wants to change details, or cancels.
+- Use OTHER for questions, ambiguous replies, mixed yes/no replies, or unrelated input.
+- Do not include markdown, code fences, explanations, or extra keys.
+- Maximum 60 characters.
+""".format(message=message)
     try:
         data = generate_json(prompt, system="Return strict JSON with intent field only.", timeout=5)
         if data and data.get("intent") in {"CONFIRM", "DENY", "OTHER"}:
@@ -97,16 +133,24 @@ or
     return "OTHER"
 
 
+@trace
 def classify_plan_selection_intent(message: str) -> str:
     """Classify user intent during plan selection into RECOMMENDATION_REQUEST or FAQ_QUESTION using LLM JSON mode."""
-    prompt = f"""Classify the customer's message during the plan selection stage of a broadband application.
-Customer message: "{message}"
+    prompt = """Classify the customer's message during the plan selection stage of a broadband order.
 
-Return JSON strictly like:
-{{"intent": "RECOMMENDATION_REQUEST"}}  (if customer asks for a recommendation, asks which plan is best for gaming/streaming/work, or asks help choosing)
-or
-{{"intent": "FAQ_QUESTION"}}           (if customer asks a general question, pricing info, installation details, or general message)
-"""
+Context:
+message: {message}
+- If message is empty, generic, or not clearly asking for help choosing a plan, classify it as FAQ_QUESTION.
+
+Requirements:
+- Return exactly one JSON object with one key named "intent".
+- intent must be exactly one of: RECOMMENDATION_REQUEST, FAQ_QUESTION.
+- Use RECOMMENDATION_REQUEST when the customer asks which plan is best, asks for a suggestion, or describes gaming, streaming, work-from-home, users, or devices to choose a plan.
+- Use FAQ_QUESTION for pricing, installation, router, policy, offer, availability, or general follow-up questions.
+- If both intents appear, prefer RECOMMENDATION_REQUEST only when the customer explicitly asks for a recommendation.
+- Do not include markdown, code fences, explanations, or extra keys.
+- Maximum 80 characters.
+""".format(message=message)
     try:
         data = generate_json(prompt, system="Return strict JSON with intent field only.", timeout=5)
         if data and data.get("intent") in {"RECOMMENDATION_REQUEST", "FAQ_QUESTION"}:
@@ -120,12 +164,32 @@ or
     return "FAQ_QUESTION"
 
 
+@trace
 def _generate_plans_unlocked_message(formatted_address: str, state_or_region: str, plan_count: int) -> str:
     """Generate a dynamic LLM message announcing regional plan cards unlocked + follow-up question on next line."""
     prompt = (
-        f"The user confirmed their address at '{formatted_address}'. "
-        f"Write Line 1: an enthusiastic sentence that {plan_count} fiber plans for {state_or_region} are listed below. "
-        "Line 2 (ON A NEW LINE): ask 'Which plan suits you best, or would you like a recommendation?' Keep it under 30 words total."
+        """Generate a two-line customer-facing message announcing that regional fiber plans are available.
+
+Context:
+formatted_address: {formatted_address}
+state_or_region: {state_or_region}
+plan_count: {plan_count}
+- If formatted_address is missing, refer to "your confirmed address".
+- If state_or_region is missing, say "your region".
+- If plan_count is 0 or missing, say "available fiber plan options" without claiming a number.
+
+Requirements:
+- Line 1 must say the available plans are listed below for the resolved region.
+- Line 2 must ask: "Which plan suits you best, or would you like a recommendation?"
+- Put Line 2 on a new line.
+- Do not mention booking, payment, appointments, or customer details.
+- Maximum 30 words total.
+- No markdown.
+"""
+    ).format(
+        formatted_address=formatted_address or "",
+        state_or_region=state_or_region or "",
+        plan_count=plan_count,
     )
     try:
         text = generate(prompt, temperature=0.7, timeout=5, max_tokens=60)
@@ -140,15 +204,34 @@ def _generate_plans_unlocked_message(formatted_address: str, state_or_region: st
     return f"Great news! We have {plan_count} fantastic fiber plans for {state_or_region} listed below.\nWhich plan suits you best, or would you like a recommendation?"
 
 
+@trace
 def _generate_pincode_only_prompt(pincode: str, city: str | None = None, state: str | None = None) -> str:
-    """Generate a dynamic LLM message when customer provides only a pincode, explaining complete address is required for Ola Maps geocoding."""
+    """Generate a dynamic LLM message when customer provides only a pincode, explaining complete address is required."""
     location_info = f"in {city}, {state}" if city and state else (f"in {city}" if city else "")
     prompt = (
-        f"The customer provided only the 6-digit PIN code '{pincode}' {location_info}. "
-        "First, politely confirm that their PIN code area is serviceable for fiber connections. "
-        "Then explain that a PIN code alone is not sufficient to qualify exact premise coverage or unlock local fiber plans. "
-        "Ask them to provide their complete street address (including house/flat number, building name, street, and locality). "
-        "Keep it under 35 words total. Do not use markdown."
+        """Generate a short customer-facing message explaining that PIN-code-only input cannot complete premise qualification.
+
+Context:
+pincode: {pincode}
+city: {city}
+state: {state}
+location_info: {location_info}
+- If city or state is missing, omit that locality detail instead of inventing it.
+- If pincode is missing, ask for both complete street address and a valid 6-digit PIN code.
+
+Requirements:
+- Politely confirm the PIN code area is eligible or pending exact premise verification.
+- Make clear that the PIN code alone is insufficient.
+- Ask for the complete street address: house/flat number, building name if available, street, and locality.
+- Do not ask for plan selection, booking, payment, or appointment details.
+- Maximum 35 words.
+- No markdown.
+"""
+    ).format(
+        pincode=pincode or "",
+        city=city or "",
+        state=state or "",
+        location_info=location_info or "",
     )
     try:
         text = generate(prompt, temperature=0.7, timeout=5, max_tokens=70)
@@ -162,13 +245,31 @@ def _generate_pincode_only_prompt(pincode: str, city: str | None = None, state: 
     )
 
 
+@trace
 def _generate_prompt_complete_address(pincode: str | None = None) -> str:
     """Generate a dynamic LLM message requesting the customer's complete street address."""
     pin_context = f" for PIN code {pincode}" if pincode else ""
     prompt = (
-        f"Ask the customer to provide their complete street address{pin_context} "
-        "(including house/flat number, street name, locality, and pincode) to check fiber availability and fetch local plans via Ola Maps API. "
-        "Emphasize that a complete street address is required, not just a PIN code. Keep it under 30 words total. Do not use markdown."
+        """Generate a short customer-facing message requesting the customer's complete service address.
+
+Context:
+pincode: {pincode}
+pin_context: {pin_context}
+- If pincode is provided, incorporate it naturally.
+- If pincode is missing, ask for a valid 6-digit PIN code as part of the complete address.
+
+Requirements:
+- Request the complete address: house/flat number, street, locality, and PIN code.
+- Make clear that both complete street address and PIN code are mandatory.
+- Make clear that a PIN code alone is insufficient.
+- Say the address will be used to check fiber availability and fetch local plans through our mapping provider.
+- Do not ask for plan selection, booking, payment, or appointment details.
+- Maximum 30 words.
+- No markdown.
+"""
+    ).format(
+        pincode=pincode or "",
+        pin_context=pin_context,
     )
     try:
         text = generate(prompt, temperature=0.7, timeout=5, max_tokens=65)
@@ -176,15 +277,29 @@ def _generate_prompt_complete_address(pincode: str | None = None) -> str:
             return text.strip()
     except Exception as exc:
         logger.warning("LLM complete address prompt error: %s", exc)
-    return "Please share your complete street address (including house/flat number, street name, locality, and pincode) so we can verify exact coverage via Ola Maps and show available fiber plans."
+    return "Please share your complete street address (including house/flat number, street name, locality, and pincode) so we can verify exact coverage via Mapbox and show available fiber plans."
 
 
+@trace
 def _generate_invalid_pincode_message(pincode: str) -> str:
     """Generate a dynamic LLM response for invalid Indian postal PIN code input."""
     prompt = (
-        f"The user provided an invalid Indian postal PIN code '{pincode}'. "
-        "Write a 1-2 sentence response explaining that valid Indian PIN codes are 6 digits starting with numbers 1 to 8, "
-        "and ask them to share their valid complete street address including correct PIN code. Keep it under 30 words. No markdown."
+        """Generate a short customer-facing message for an invalid Indian postal PIN code.
+
+Context:
+pincode: {pincode}
+- If pincode is empty, refer to "that PIN code" instead of quoting an empty value.
+
+Requirements:
+- State that the supplied PIN code is invalid.
+- Explain that valid Indian PIN codes are 6 digits and start with digits 1 through 8.
+- Ask for the complete street address with the correct PIN code.
+- Do not mention serviceability, plans, booking, payment, or appointments.
+- Maximum 30 words.
+- No markdown.
+"""
+    ).format(
+        pincode=pincode or ""
     )
     try:
         text = generate(prompt, temperature=0.7, timeout=5, max_tokens=65)
@@ -195,11 +310,29 @@ def _generate_invalid_pincode_message(pincode: str) -> str:
     return f"Sorry, PIN code '{pincode}' is invalid. Indian postal PIN codes are 6 digits starting with numbers 1 through 8. Please share your valid complete street address including correct PIN code."
 
 
+@trace
 def _generate_unserviceable_message(pincode: str, fallback_message: str | None = None) -> str:
     """Generate a dynamic LLM response for unserviceable location."""
     prompt = (
-        f"The user requested fiber connection for PIN code '{pincode}', but our fiber network is not available there yet. "
-        "Write a polite 1-2 sentence message stating we don't serve this area yet but are expanding, and ask if they'd like to check a different complete street address. Keep it under 30 words. No markdown."
+        """Generate a polite customer-facing message for a location where fiber service is unavailable.
+
+Context:
+pincode: {pincode}
+fallback_message: {fallback_message}
+- If pincode is missing, say "this area" instead of inventing a PIN code.
+- If fallback_message contains a specific city or state, keep the meaning consistent but do not copy technical wording.
+
+Requirements:
+- State that fiber service is currently unavailable for the submitted area.
+- Mention that coverage is expanding.
+- Ask whether the customer wants to check a different complete street address with PIN code.
+- Do not offer plans, booking, payment, or appointments.
+- Maximum 30 words.
+- No markdown.
+"""
+    ).format(
+        pincode=pincode or "",
+        fallback_message=fallback_message or "",
     )
     try:
         text = generate(prompt, temperature=0.7, timeout=5, max_tokens=65)
@@ -210,11 +343,25 @@ def _generate_unserviceable_message(pincode: str, fallback_message: str | None =
     return fallback_message or f"Sorry, our fiber services are currently unavailable at PIN code {pincode}. We are expanding soon! Would you like to check a different complete street address?"
 
 
+@trace
 def _generate_escape_reset_message() -> str:
     """Generate a dynamic LLM response when user wants to reset or change address."""
     prompt = (
-        "The customer wants to start over or change their address. "
-        "Write a friendly 1-sentence response acknowledging the reset and asking them for their complete street address (house/flat number, street, locality, and pincode) to check coverage via Ola Maps. Keep it under 25 words. No markdown."
+        """Generate a friendly customer-facing message acknowledging that the customer wants to reset or change address.
+
+Context:
+No interpolated variables are available for this message.
+- Since no previous address should be reused, ask for a fresh complete address.
+
+Requirements:
+- Acknowledge the reset or address change.
+- Ask for the complete street address: house/flat number, street, locality, and PIN code.
+- Make clear that both address and PIN code are required for coverage verification.
+- Do not mention plans, booking, payment, or appointments.
+- Use one sentence.
+- Maximum 25 words.
+- No markdown.
+"""
     )
     try:
         text = generate(prompt, temperature=0.7, timeout=5, max_tokens=60)
@@ -225,6 +372,7 @@ def _generate_escape_reset_message() -> str:
     return "No problem! Let's start fresh. Please share your complete street address (house/flat number, street name, locality, and pincode)."
 
 
+@trace
 def initialize_session(
     session_id: str | None = None,
     *,
@@ -274,6 +422,7 @@ def initialize_session(
     }
 
 
+@trace
 def _extract_pincode(text: str) -> str | None:
     """Extract a 6-digit Indian PIN code from text."""
     match = re.search(r"\b([1-9][0-9]{5})\b", text)
@@ -282,6 +431,7 @@ def _extract_pincode(text: str) -> str | None:
     return None
 
 
+@trace
 def _is_escape_intent(text: str) -> bool:
     """Detect if user wants to reset, change address, or leave the current sub-flow."""
     low = text.lower().strip()
@@ -293,6 +443,7 @@ def _is_escape_intent(text: str) -> bool:
     return any(p in low for p in escape_phrases)
 
 
+@trace
 def _is_order_intent_trigger(text: str) -> bool:
     """Check if text expresses explicit intent to start an order or check serviceability."""
     low = text.lower().strip()
@@ -325,6 +476,7 @@ def _is_order_intent_trigger(text: str) -> bool:
     return any(p in low for p in order_phrases)
 
 
+@trace
 def _extract_customer_info(text: str) -> dict:
     """Extract Name, Phone, and Email from message."""
     email_match = re.search(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", text)
@@ -342,6 +494,7 @@ def _extract_customer_info(text: str) -> dict:
     }
 
 
+@trace
 def handle_message(
     session_id: str,
     message: str,
@@ -376,7 +529,11 @@ def handle_message(
         session["mode"] = "ORDER_FLOW"
     else:
         # 1. LLM-driven Intent Classifier (Primary route selection)
-        llm_route = classify_conversation_route(message, session)
+        try:
+            llm_route = classify_conversation_route(message, session)
+        except Exception as exc:
+            logger.warning("Conversation route classification failed, using safety-net: %s", exc)
+            llm_route = None
         if llm_route == "TRANSACTION":
             session["mode"] = "ORDER_FLOW"
             logger.info("LLM State transition: session=%s RAG -> ORDER_FLOW", session_id)
@@ -395,8 +552,16 @@ def handle_message(
     # FLOW 1: RAG FAQ FLOW (When mode is "RAG")
     # =========================================================================
     if active_mode == "RAG":
-        retrieved_chunks = query_faq_collection(message, top_k=3)
-        answer = generate_grounded_faq_answer(message, retrieved_chunks)
+        try:
+            retrieved_chunks = query_faq_collection(message, top_k=3)
+        except Exception as exc:
+            logger.warning("RAG retrieval failed: %s", exc)
+            retrieved_chunks = []
+        try:
+            answer = generate_grounded_faq_answer(message, retrieved_chunks)
+        except Exception as exc:
+            logger.warning("RAG synthesis failed: %s", exc)
+            answer = "I can help with broadband plans, routers, installation, and coverage. Please ask a question, or share a complete street address with PIN code when you want to check serviceability."
         evidence = [{"type": "faq_chunk", "chunk": c} for c in retrieved_chunks]
 
         session.setdefault("conversation_history", []).extend([
@@ -538,7 +703,7 @@ def handle_message(
                 "updatedState": updated_state,
             }
 
-    # Sub-step 2: Address Verification & Geocoding via Ola Maps API
+    # Sub-step 2: Address Verification & Geocoding via Mapbox with Nominatim fallback
     pincode = _extract_pincode(message) or session.get("pincode")
     street_address = session.get("street_address")
 
@@ -641,9 +806,21 @@ def handle_message(
     if not pincode or not session.get("address_qualified"):
         # Check if user message is actually a FAQ/general question rather than an address
         if not re.search(r"\d{6}", msg_strip) and not clean_street_address(msg_strip, pincode):
-            chunks = query_faq_collection(message, top_k=3)
+            try:
+                chunks = query_faq_collection(message, top_k=3)
+            except Exception as exc:
+                logger.warning("Order-flow FAQ retrieval failed: %s", exc)
+                chunks = []
             if chunks:
-                faq_answer = generate_grounded_faq_answer(message, chunks)
+                try:
+                    faq_answer = generate_grounded_faq_answer(message, chunks)
+                except Exception as exc:
+                    logger.warning("Order-flow FAQ synthesis failed: %s", exc)
+                    faq_answer = ""
+                if not faq_answer:
+                    faq_answer = "I can help with that from our broadband FAQs."
+                if "whenever you're ready" not in faq_answer.lower() and "whenever you are ready" not in faq_answer.lower():
+                    faq_answer = faq_answer.rstrip() + " You can share your complete street address whenever you're ready."
                 answer = faq_answer
                 updated_state = state_for_response(state_from_session(session_id, session))
                 return {
@@ -725,8 +902,12 @@ def handle_message(
             session["recommendation_answers"] = []
             answer = "I can help you find the best plan! Let me ask you 3 quick questions.\n\nFirst, how many users will be using the network?"
         else:
-            chunks = query_faq_collection(message, top_k=3)
-            answer = generate_grounded_faq_answer(message, chunks)
+            try:
+                chunks = query_faq_collection(message, top_k=3)
+                answer = generate_grounded_faq_answer(message, chunks)
+            except Exception as exc:
+                logger.warning("Plan-selection FAQ synthesis failed: %s", exc)
+                answer = "Please tell me which plan you want, or ask me to recommend one."
 
         updated_state = state_for_response(state_from_session(session_id, session))
         return {

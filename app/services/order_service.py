@@ -3,16 +3,28 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.models.order import Order
 from app.models.customer import Customer
+from app.utils.trace import trace, trace_async
 
 
+@trace
+def _has_complete_service_address(address: dict) -> bool:
+    return bool(
+        address
+        and address.get("address_qualified")
+        and address.get("pincode")
+        and (address.get("street_address") or address.get("formatted_address"))
+    )
+
+
+@trace
 def create_order(db: Session, session_id: str, context: dict) -> dict:
     customer = context.get("customer", {})
     plan = context.get("selected_plan")
     payment = context.get("payment", {})
-    address = context.get("service_address") or context.get("qualified_address") or ({"pincode": context.get("pincode")} if context.get("pincode") else {})
+    address = context.get("service_address") or context.get("qualified_address") or {}
     appointment = context.get("appointment")
-    if not plan or not address or not appointment or payment.get("status") != "completed":
-        raise ValueError("A selected plan, service address, appointment, and completed payment are required")
+    if not plan or not _has_complete_service_address(address) or not appointment or payment.get("status") != "completed":
+        raise ValueError("A selected plan, complete qualified service address with PIN code, appointment, and completed payment are required")
 
     # Ensure Customer record exists in customers DB table for lookup
     cust_id = customer.get("customer_id") or f"CUST-{uuid4().hex[:6].upper()}"

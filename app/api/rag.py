@@ -6,6 +6,7 @@ from app.assistant.service import handle_message
 from app.database import get_db
 from app.schemas.api import RAGQueryRequest, RAGQueryData
 from app.schemas.envelope import ResponseEnvelope, success_response
+from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["AI Assistant API"])
@@ -13,6 +14,7 @@ legacy_router = APIRouter(tags=["Legacy AI Assistant API"])
 
 
 @router.post("/ai/rag/query", response_model=ResponseEnvelope[RAGQueryData])
+@trace
 def query_rag_assistant(request: RAGQueryRequest, db: Session = Depends(get_db)):
     """AI Assistant API - Modular orchestration powered by Gemini & ChromaDB RAG."""
     started = perf_counter()

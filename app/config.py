@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 500
     chroma_path: str = "./chroma_data"
     chroma_enabled: bool = False
-    olamaps_api_key: str | None = None
+    mapbox_token: str | None = None
     api_base_url: str = "http://localhost:8000"
     razorpay_key_id: str | None = None
     razorpay_key_secret: str | None = None

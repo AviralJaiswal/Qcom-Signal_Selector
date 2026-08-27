@@ -9,6 +9,7 @@ from app.assistant.service import handle_message, initialize_session
 from app.chat.session import session_store
 from app.database import get_db
 from app.schemas.envelope import success_response
+from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class AssistantChatRequest(BaseModel):
 
 
 @router.post("/shopper/sessions")
+@trace
 def create_shopper_session(request: ShopperSessionRequest):
     return success_response(
         initialize_session(
@@ -45,6 +47,7 @@ def create_shopper_session(request: ShopperSessionRequest):
 
 
 @router.post("/assistant/welcome")
+@trace
 def assistant_welcome(request: ShopperSessionRequest):
     return success_response(
         initialize_session(
@@ -59,6 +62,7 @@ def assistant_welcome(request: ShopperSessionRequest):
 
 
 @router.post("/assistant/chat")
+@trace
 def assistant_chat(request: AssistantChatRequest, db: Session = Depends(get_db)):
     if not session_store.exists(request.sessionId):
         raise HTTPException(status_code=404, detail="Unknown session. Initialize a shopper session first.")

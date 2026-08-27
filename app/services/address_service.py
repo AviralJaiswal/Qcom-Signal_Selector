@@ -3,13 +3,18 @@ import re
 import requests
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.config import get_settings
 from app.models.address import Address
+from app.services.http_client import nominatim_verify_setting, requests_verify_setting
+from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
 
 NOMINATIM_USER_AGENT = "SignalSelectorTelecomApp/1.0 (contact: dev@prodapt.com)"
+MAPBOX_FORWARD_GEOCODING_URL = "https://api.mapbox.com/search/geocode/v6/forward"
 
 
+@trace
 def clean_street_address(text: str, pincode: str | None = None) -> str:
     """Clean natural language conversational phrases and pincodes from address text."""
     if not text:
@@ -55,6 +60,7 @@ def clean_street_address(text: str, pincode: str | None = None) -> str:
 
 
 
+@trace
 def extract_street_address_llm(text: str, pincode: str | None = None) -> str | None:
     """Use LLM to accurately extract physical street address (house/flat/building/street)
     from customer message, ignoring general intents, questions, and conversational text."""
@@ -67,18 +73,24 @@ def extract_street_address_llm(text: str, pincode: str | None = None) -> str | N
 
     try:
         from app.assistant.llm import generate_json
-        prompt = f"""Analyze this customer message for a telecom broadband application.
-Determine if the customer provided an actual physical street address (such as house/flat number, apartment/building name, street, road, colony, nagar, or sector).
+        prompt = """Determine whether the customer message contains a specific physical street address for broadband service qualification.
 
-Customer Message: "{text}"
-PIN Code: {pincode or 'None'}
+Context:
+customer_message: {text}
+pincode: {pincode}
+- If pincode is missing, still classify whether a street address is present.
+- If customer_message is empty, intent-only, or only contains a PIN code, return has_street_address as false.
 
-RULES:
-1. If the message only expresses intent, asks a question, or mentions a pincode (e.g. "I want to discover plans for my pincode 201012", "Check coverage for 500084", "Is service available in Delhi?"), return JSON: {{"has_street_address": false, "street_address": null}}
-2. ONLY if the message contains a specific physical street address (e.g. "Flat 402, Sunshine Apts, MG Road", "Plot 12, Sector 14, Vasundhara"), return JSON: {{"has_street_address": true, "street_address": "extracted street address"}}
-
-Return strictly valid JSON only:
-{{"has_street_address": true/false, "street_address": "string or null"}}"""
+Requirements:
+- Return exactly one JSON object with keys "has_street_address" and "street_address".
+- Set has_street_address to true only when the message contains a house/flat/plot number, apartment/building name, street/road/lane, colony, nagar, sector, block, or comparable premise detail.
+- Set has_street_address to false for general questions, plan discovery requests, serviceability requests, city-only input, or pincode-only input.
+- If true, street_address must contain only the extracted street/premise portion and must exclude the PIN code.
+- If false, street_address must be null.
+- If the message contains conflicting or ambiguous location text, return false instead of guessing.
+- Do not include markdown, code fences, explanations, or extra keys.
+- Maximum 90 characters for street_address.
+""".format(text=text, pincode=pincode or "None")
 
         parsed = generate_json(prompt, system="You return strict JSON only.", timeout=4)
         if parsed and isinstance(parsed, dict):
@@ -139,6 +151,7 @@ PINCODE_PREFIX_MAP = [
 ]
 
 
+@trace
 def get_telecom_circle(state: str = "", city: str = "", display_name: str = "", pincode: str = "") -> str:
     """Map detected Indian state, city, display_name, or pincode to exact Telecom Circle key using structured map tables."""
     loc_str = f"{city} {state} {display_name}".lower()
@@ -166,56 +179,226 @@ def get_region_from_state(state: str, city: str = "", display_name: str = "", pi
     return get_telecom_circle(state=state, city=city, display_name=display_name, pincode=pincode)
 
 
-def _olamaps_pincode_lookup(pincode: str) -> dict | None:
-    """Geocode pincode using OLA Maps API as primary provider."""
-    from app.config import get_settings
-    from app.services.http_client import requests_verify_setting
-    settings = get_settings()
-    api_key = settings.olamaps_api_key
-    if not api_key:
-        logger.warning("OLAMAPS_API_KEY is not configured in .env")
-        return None
-    url = f"https://api.olamaps.io/places/v1/geocode?address={pincode}&api_key={api_key}"
-    headers = {"X-Request-Id": f"sig-sel-pin-{pincode}", "User-Agent": NOMINATIM_USER_AGENT}
-    for verify_ssl in (requests_verify_setting(), False):
-        try:
-            res = requests.get(url, headers=headers, timeout=4, verify=verify_ssl)
-            if res.status_code == 200:
-                data = res.json()
-                results = data.get("geocodingResults") or data.get("results") or []
-                if results:
-                    item = results[0]
-                    formatted = item.get("formatted_address", "")
-                    loc = item.get("geometry", {}).get("location", {})
-                    
-                    city = "Metro Center"
-                    state = "India"
-                    for comp in item.get("address_components", []):
-                        types = comp.get("types", [])
-                        if "locality" in types or "administrative_area_level_2" in types:
-                            city = comp.get("short_name") or comp.get("long_name") or city
-                        if "administrative_area_level_1" in types:
-                            state = comp.get("short_name") or comp.get("long_name") or state
-                            
-                    region = get_telecom_circle(state=state, city=city, display_name=formatted, pincode=pincode)
-                    logger.info("OLA Maps pincode lookup successful for %s: city=%s, state=%s", pincode, city, state)
-                    return {
-                        "found": True,
-                        "serviceable": True,
-                        "provider": "OLAMAPS",
-                        "pincode": pincode,
-                        "city": city,
-                        "state": state,
-                        "region": region,
-                        "lat": loc.get("lat"),
-                        "lon": loc.get("lng"),
-                        "display_name": formatted or f"{city}, {state}, {pincode}",
-                    }
-        except Exception as exc:
-            logger.warning("OLA Maps pincode lookup attempt (verify=%s) failed for %s: %s", verify_ssl, pincode, exc)
+def _verify_attempts(primary: bool | str) -> tuple[bool | str, ...]:
+    """Try the configured TLS setting first, then one non-verified retry for local CA issues."""
+    return (primary,) if primary is False else (primary, False)
+
+
+@trace
+def _normalize_mapbox_query(query: str) -> str:
+    """Keep Mapbox forward-geocoding text within documented q limits."""
+    cleaned = re.sub(r";+", " ", query or "")
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if not cleaned:
+        return ""
+    return " ".join(cleaned.split()[:20])[:256].strip(" ,")
+
+
+@trace
+def _context_name(context: dict | list | None, *keys: str) -> str | None:
+    """Extract a named place from Mapbox v6 context, with tolerance for older list shapes."""
+    if isinstance(context, dict):
+        for key in keys:
+            value = context.get(key)
+            if isinstance(value, dict):
+                name = value.get("name") or value.get("text")
+                if name:
+                    return str(name).strip()
+            elif isinstance(value, str):
+                return value.strip()
+    elif isinstance(context, list):
+        for key in keys:
+            for item in context:
+                if not isinstance(item, dict):
+                    continue
+                item_id = str(item.get("id") or item.get("feature_type") or "")
+                if key in item_id:
+                    name = item.get("text") or item.get("name")
+                    if name:
+                        return str(name).strip()
     return None
 
 
+@trace
+def _extract_pin_from_text(value: str | None) -> str | None:
+    if not value:
+        return None
+    match = re.search(r"\b([1-9][0-9]{5})\b", str(value))
+    return match.group(1) if match else None
+
+
+@trace
+def _mapbox_coordinates(feature: dict) -> tuple[float | None, float | None]:
+    props = feature.get("properties") or {}
+    prop_coords = props.get("coordinates") or {}
+    lon = prop_coords.get("longitude")
+    lat = prop_coords.get("latitude")
+    if lat is not None and lon is not None:
+        return lat, lon
+
+    coords = (feature.get("geometry") or {}).get("coordinates") or []
+    if len(coords) >= 2:
+        return coords[1], coords[0]
+    return None, None
+
+
+@trace
+def _mapbox_feature_to_geo(
+    feature: dict,
+    pincode: str,
+    *,
+    street_address: str | None = None,
+    address_qualified: bool = False,
+) -> dict | None:
+    props = feature.get("properties") or {}
+    context = props.get("context")
+    name = props.get("full_address") or props.get("name_preferred") or props.get("name") or ""
+    place_formatted = props.get("place_formatted") or ""
+    display_name = props.get("full_address") or ", ".join(part for part in (name, place_formatted) if part)
+    returned_pin = (
+        _extract_pin_from_text(_context_name(context, "postcode"))
+        or _extract_pin_from_text(props.get("postcode"))
+        or _extract_pin_from_text(display_name)
+    )
+
+    if returned_pin and returned_pin != pincode.strip():
+        input_zone = pincode.strip()[:2]
+        returned_zone = returned_pin[:2]
+        if input_zone != returned_zone:
+            logger.warning(
+                "Mapbox address/pincode mismatch: input=%s returned=%s for '%s'",
+                pincode,
+                returned_pin,
+                street_address or pincode,
+            )
+            return None
+        display_name = display_name.replace(returned_pin, pincode.strip())
+
+    city = (
+        _context_name(context, "place")
+        or _context_name(context, "locality")
+        or _context_name(context, "neighborhood")
+        or _context_name(context, "district")
+        or "Metro Center"
+    )
+    state = _context_name(context, "region") or "India"
+    lat, lon = _mapbox_coordinates(feature)
+    region = get_telecom_circle(state=state, city=city, display_name=display_name, pincode=pincode)
+
+    if address_qualified:
+        clean_street = street_address.strip().title() if street_address else ""
+        formatted = display_name or f"{clean_street}, {city}, {state} {pincode.strip()}, India"
+        if pincode.strip() not in formatted:
+            formatted = f"{formatted}, {pincode.strip()}"
+        return {
+            "found": True,
+            "serviceable": True,
+            "address_qualified": True,
+            "provider": "MAPBOX",
+            "pincode": pincode,
+            "street_address": street_address,
+            "formatted_address": formatted,
+            "city": city,
+            "state": state,
+            "region": region,
+            "lat": lat,
+            "lon": lon,
+        }
+
+    return {
+        "found": True,
+        "serviceable": True,
+        "provider": "MAPBOX",
+        "pincode": pincode,
+        "city": city,
+        "state": state,
+        "region": region,
+        "lat": lat,
+        "lon": lon,
+        "display_name": display_name or f"{city}, {state}, {pincode}",
+    }
+
+
+@trace
+def _mapbox_forward_lookup(
+    query: str,
+    pincode: str,
+    *,
+    street_address: str | None = None,
+    types: str | None = None,
+    address_qualified: bool = False,
+) -> dict | None:
+    """Geocode address text using Mapbox Geocoding v6 forward endpoint."""
+    settings = get_settings()
+    token = settings.mapbox_token
+    if not token:
+        logger.info("MAPBOX_TOKEN is not configured; using geocoding fallback")
+        return None
+
+    normalized_query = _normalize_mapbox_query(query)
+    if not normalized_query:
+        return None
+
+    params = {
+        "q": normalized_query,
+        "access_token": token,
+        "country": "in",
+        "worldview": "in",
+        "language": "en",
+        "autocomplete": "false",
+        "limit": 1,
+    }
+    if types:
+        params["types"] = types
+
+    headers = {"User-Agent": NOMINATIM_USER_AGENT}
+    for verify_ssl in _verify_attempts(requests_verify_setting()):
+        try:
+            res = requests.get(
+                MAPBOX_FORWARD_GEOCODING_URL,
+                params=params,
+                headers=headers,
+                timeout=4,
+                verify=verify_ssl,
+            )
+            if res.status_code >= 400:
+                logger.warning("Mapbox geocoding failed status=%s body=%s", res.status_code, res.text[:200])
+                continue
+            try:
+                data = res.json()
+            except ValueError as exc:
+                logger.warning("Mapbox geocoding returned malformed JSON for %s: %s", normalized_query, exc)
+                continue
+            features = data.get("features") if isinstance(data, dict) else []
+            if not features:
+                logger.info("Mapbox geocoding returned no result for %s", normalized_query)
+                continue
+            geo = _mapbox_feature_to_geo(
+                features[0],
+                pincode,
+                street_address=street_address,
+                address_qualified=address_qualified,
+            )
+            if geo:
+                logger.info("Mapbox geocoding successful for %s", normalized_query)
+                return geo
+        except Exception as exc:
+            logger.warning("Mapbox geocoding attempt (verify=%s) failed for %s: %s", verify_ssl, normalized_query, exc)
+    return None
+
+
+@trace
+def _mapbox_pincode_lookup(pincode: str) -> dict | None:
+    """Geocode pincode using Mapbox as primary provider."""
+    return _mapbox_forward_lookup(
+        f"{pincode}, India",
+        pincode,
+        types="postcode,place,locality,district",
+        address_qualified=False,
+    )
+
+
+@trace
 def _extract_postal_code(components: list[dict]) -> str | None:
     for comp in components or []:
         if "postal_code" in (comp.get("types") or []):
@@ -223,167 +406,131 @@ def _extract_postal_code(components: list[dict]) -> str | None:
     return None
 
 
-def _olamaps_address_lookup(street_address: str, pincode: str) -> dict | None:
-    """Geocode full street address using OLA Maps API as primary provider."""
-    from app.config import get_settings
-    from app.services.http_client import requests_verify_setting
-    settings = get_settings()
-    api_key = settings.olamaps_api_key
-    if not api_key:
-        logger.warning("OLAMAPS_API_KEY is not configured in .env")
-        return None
-    query = f"{street_address}, {pincode}, India"
-    url = f"https://api.olamaps.io/places/v1/geocode?address={requests.utils.quote(query)}&api_key={api_key}"
-    headers = {"X-Request-Id": f"sig-sel-addr-{pincode}", "User-Agent": NOMINATIM_USER_AGENT}
-    for verify_ssl in (requests_verify_setting(), False):
-        try:
-            res = requests.get(url, headers=headers, timeout=4, verify=verify_ssl)
-            if res.status_code == 200:
-                data = res.json()
-                results = data.get("geocodingResults") or data.get("results") or []
-                if results:
-                    item = results[0]
-                    formatted = item.get("formatted_address", "")
-                    loc = item.get("geometry", {}).get("location", {})
-                    components = item.get("address_components", [])
-
-                    returned_pin = _extract_postal_code(components)
-                    if returned_pin and returned_pin.strip() != pincode.strip():
-                        input_zone = pincode.strip()[:2]
-                        ret_zone = returned_pin.strip()[:2]
-                        if input_zone != ret_zone:
-                            logger.warning(
-                                "OLA Maps address/pincode mismatch: input=%s returned=%s for '%s' - rejecting as not legit",
-                                pincode, returned_pin, street_address,
-                            )
-                            return None
-
-                    city = "Metro Center"
-                    state = "India"
-                    for comp in components:
-                        types = comp.get("types", [])
-                        if "locality" in types or "administrative_area_level_2" in types:
-                            city = comp.get("short_name") or comp.get("long_name") or city
-                        if "administrative_area_level_1" in types:
-                            state = comp.get("short_name") or comp.get("long_name") or state
-
-                    region = get_telecom_circle(state=state, city=city, display_name=formatted, pincode=pincode)
-
-                    # Prefer OLA Maps returned formatted address directly for exact plot/locality precision
-                    if formatted and len(formatted.strip()) > 10:
-                        if returned_pin and returned_pin.strip() != pincode.strip() and returned_pin.strip() in formatted:
-                            formatted = formatted.replace(returned_pin.strip(), pincode.strip())
-                    else:
-                        clean_street = street_address.strip().title() if street_address else ""
-                        formatted = f"{clean_street}, {city}, {state} {pincode.strip()}, India"
-
-                    logger.info("OLA Maps address lookup successful for %s, %s: city=%s, state=%s", street_address, pincode, city, state)
-                    return {
-                        "found": True,
-                        "serviceable": True,
-                        "address_qualified": True,
-                        "provider": "OLAMAPS",
-                        "pincode": pincode,
-                        "street_address": street_address,
-                        "formatted_address": formatted,
-                        "city": city,
-                        "state": state,
-                        "region": region,
-                        "lat": loc.get("lat"),
-                        "lon": loc.get("lng"),
-                    }
-        except Exception as exc:
-            logger.warning("OLA Maps address lookup attempt (verify=%s) failed for %s, %s: %s", verify_ssl, street_address, pincode, exc)
-    return None
+@trace
+def _mapbox_address_lookup(street_address: str, pincode: str) -> dict | None:
+    """Geocode full street address using Mapbox as primary provider."""
+    return _mapbox_forward_lookup(
+        f"{street_address}, {pincode}, India",
+        pincode,
+        street_address=street_address,
+        types="address,street,postcode,place,locality,neighborhood",
+        address_qualified=True,
+    )
 
 
+@trace
 def _nominatim_pincode_lookup(pincode: str) -> dict | None:
     """Geocode pincode using Nominatim (OpenStreetMap) API fallback with custom User-Agent."""
     url = f"https://nominatim.openstreetmap.org/search?postalcode={pincode}&country=India&format=json&addressdetails=1"
     headers = {"User-Agent": NOMINATIM_USER_AGENT}
-    try:
-        res = requests.get(url, headers=headers, timeout=2)
-        if res.status_code == 200 and res.json():
-            item = res.json()[0]
-            addr = item.get("address", {})
-            city = addr.get("city") or addr.get("state_district") or addr.get("county") or addr.get("town") or addr.get("suburb") or "Metro Center"
-            state = addr.get("state") or "India"
-            display_name = item.get("display_name", "")
-            region = get_telecom_circle(state=state, city=city, display_name=display_name, pincode=pincode)
-            return {
-                "found": True,
-                "serviceable": True,
-                "provider": "NOMINATIM",
-                "pincode": pincode,
-                "city": city,
-                "state": state,
-                "region": region,
-                "lat": item.get("lat"),
-                "lon": item.get("lon"),
-                "display_name": display_name,
-            }
-    except Exception as exc:
-        logger.warning("Nominatim pincode lookup failed for %s: %s", pincode, exc)
+    for verify_ssl in _verify_attempts(nominatim_verify_setting()):
+        try:
+            res = requests.get(url, headers=headers, timeout=2, verify=verify_ssl)
+            if res.status_code != 200:
+                logger.warning("Nominatim pincode lookup status=%s for %s", res.status_code, pincode)
+                continue
+            try:
+                payload = res.json()
+            except ValueError as exc:
+                logger.warning("Nominatim pincode lookup returned malformed JSON for %s: %s", pincode, exc)
+                continue
+            if payload:
+                item = payload[0]
+                addr = item.get("address", {})
+                city = addr.get("city") or addr.get("state_district") or addr.get("county") or addr.get("town") or addr.get("suburb") or "Metro Center"
+                state = addr.get("state") or "India"
+                display_name = item.get("display_name", "")
+                region = get_telecom_circle(state=state, city=city, display_name=display_name, pincode=pincode)
+                return {
+                    "found": True,
+                    "serviceable": True,
+                    "provider": "NOMINATIM",
+                    "pincode": pincode,
+                    "city": city,
+                    "state": state,
+                    "region": region,
+                    "lat": item.get("lat"),
+                    "lon": item.get("lon"),
+                    "display_name": display_name,
+                }
+        except Exception as exc:
+            logger.warning("Nominatim pincode lookup attempt (verify=%s) failed for %s: %s", verify_ssl, pincode, exc)
     return None
 
 
+@trace
 def _nominatim_address_lookup(street_address: str, pincode: str) -> dict | None:
     """Geocode full street address using Nominatim (OpenStreetMap) API fallback with custom User-Agent."""
     query = f"{street_address}, {pincode}, India"
     url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(query)}&format=json&addressdetails=1"
     headers = {"User-Agent": NOMINATIM_USER_AGENT}
-    try:
-        res = requests.get(url, headers=headers, timeout=3)
-        items = res.json() if res.status_code == 200 and res.json() else []
-        if not items:
-            # Fallback to postalcode query if specific street building is not indexed in OSM
-            url2 = f"https://nominatim.openstreetmap.org/search?postalcode={pincode}&country=India&format=json&addressdetails=1"
-            res2 = requests.get(url2, headers=headers, timeout=3)
-            items = res2.json() if res2.status_code == 200 and res2.json() else []
-
-        if items:
-            item = items[0]
-            addr = item.get("address", {})
-            returned_pin = (addr.get("postcode") or "").strip()
-            if returned_pin and returned_pin != pincode.strip():
-                input_zone = pincode.strip()[:2]
-                ret_zone = returned_pin[:2]
-                if input_zone != ret_zone:
-                    logger.warning(
-                        "Nominatim address/pincode mismatch: input=%s returned=%s for '%s' - rejecting as not legit",
-                        pincode, returned_pin, street_address,
-                    )
-                    return None
-            city = addr.get("city") or addr.get("state_district") or addr.get("county") or addr.get("town") or addr.get("suburb") or "Metro Center"
-            state = addr.get("state") or "India"
-            display_name = item.get("display_name", "")
-            region = get_telecom_circle(state=state, city=city, display_name=display_name, pincode=pincode)
-
-            clean_street = street_address.strip().title() if street_address else ""
-            if clean_street and clean_street.lower() not in display_name.lower():
-                formatted = f"{clean_street}, {city}, {state} {pincode.strip()}, India"
+    for verify_ssl in _verify_attempts(nominatim_verify_setting()):
+        try:
+            res = requests.get(url, headers=headers, timeout=3, verify=verify_ssl)
+            items = []
+            if res.status_code == 200:
+                try:
+                    items = res.json() or []
+                except ValueError as exc:
+                    logger.warning("Nominatim address lookup returned malformed JSON for %s, %s: %s", street_address, pincode, exc)
             else:
-                formatted = display_name
+                logger.warning("Nominatim address lookup status=%s for %s, %s", res.status_code, street_address, pincode)
+            if not items:
+                # Fallback to postalcode query if specific street building is not indexed in OSM
+                url2 = f"https://nominatim.openstreetmap.org/search?postalcode={pincode}&country=India&format=json&addressdetails=1"
+                res2 = requests.get(url2, headers=headers, timeout=3, verify=verify_ssl)
+                if res2.status_code == 200:
+                    try:
+                        items = res2.json() or []
+                    except ValueError as exc:
+                        logger.warning("Nominatim postal fallback returned malformed JSON for %s: %s", pincode, exc)
+                else:
+                    logger.warning("Nominatim postal fallback status=%s for %s", res2.status_code, pincode)
 
-            return {
-                "found": True,
-                "serviceable": True,
-                "address_qualified": True,
-                "provider": "NOMINATIM",
-                "pincode": pincode,
-                "street_address": street_address,
-                "formatted_address": formatted,
-                "city": city,
-                "state": state,
-                "region": region,
-                "lat": item.get("lat"),
-                "lon": item.get("lon"),
-            }
-    except Exception as exc:
-        logger.warning("Nominatim address lookup failed for %s, %s: %s", street_address, pincode, exc)
+            if items:
+                item = items[0]
+                addr = item.get("address", {})
+                returned_pin = (addr.get("postcode") or "").strip()
+                if returned_pin and returned_pin != pincode.strip():
+                    input_zone = pincode.strip()[:2]
+                    ret_zone = returned_pin[:2]
+                    if input_zone != ret_zone:
+                        logger.warning(
+                            "Nominatim address/pincode mismatch: input=%s returned=%s for '%s' - rejecting as not legit",
+                            pincode, returned_pin, street_address,
+                        )
+                        return None
+                city = addr.get("city") or addr.get("state_district") or addr.get("county") or addr.get("town") or addr.get("suburb") or "Metro Center"
+                state = addr.get("state") or "India"
+                display_name = item.get("display_name", "")
+                region = get_telecom_circle(state=state, city=city, display_name=display_name, pincode=pincode)
+
+                clean_street = street_address.strip().title() if street_address else ""
+                if clean_street and clean_street.lower() not in display_name.lower():
+                    formatted = f"{clean_street}, {city}, {state} {pincode.strip()}, India"
+                else:
+                    formatted = display_name
+
+                return {
+                    "found": True,
+                    "serviceable": True,
+                    "address_qualified": True,
+                    "provider": "NOMINATIM",
+                    "pincode": pincode,
+                    "street_address": street_address,
+                    "formatted_address": formatted,
+                    "city": city,
+                    "state": state,
+                    "region": region,
+                    "lat": item.get("lat"),
+                    "lon": item.get("lon"),
+                }
+        except Exception as exc:
+            logger.warning("Nominatim address lookup attempt (verify=%s) failed for %s, %s: %s", verify_ssl, street_address, pincode, exc)
     return None
 
 
+@trace
 def _is_invalid_or_dummy_pincode(pincode: str) -> bool:
     """Strictly identify non-existent, dummy, or invalid Indian PIN codes."""
     pin = (pincode or "").strip()
@@ -401,8 +548,9 @@ def _is_invalid_or_dummy_pincode(pincode: str) -> bool:
     return False
 
 
+@trace
 def qualify(db: Session, pincode: str, street_address: str | None = None) -> dict:
-    """Three-State Location Qualification using DB Serviceability Data + OLA Maps / Nominatim:
+    """Three-State Location Qualification using DB Serviceability Data + Mapbox / Nominatim:
     States:
     1. AVAILABLE (serviceable=True): Explicitly marked serviceable in DB or geocoded.
     2. UNAVAILABLE (serviceable=False): Explicitly marked unserviceable in DB.
@@ -440,8 +588,8 @@ def qualify(db: Session, pincode: str, street_address: str | None = None) -> dic
 
     if street_address and street_address.strip():
         cleaned_street = clean_street_address(street_address, cleaned_pin) or street_address.strip()
-        # Step 2B: Full Street Address Verification (Primary: OLA Maps, Secondary: Nominatim, Fallback: DB)
-        geo = _olamaps_address_lookup(cleaned_street, cleaned_pin) or _nominatim_address_lookup(cleaned_street, cleaned_pin)
+        # Step 2B: Full Street Address Verification (Primary: Mapbox, Secondary: Nominatim, Fallback: DB)
+        geo = _mapbox_address_lookup(cleaned_street, cleaned_pin) or _nominatim_address_lookup(cleaned_street, cleaned_pin)
         if not geo:
             if db_addr:
                 region = get_telecom_circle(state=db_addr.state, city=db_addr.city, pincode=cleaned_pin)
@@ -488,7 +636,7 @@ def qualify(db: Session, pincode: str, street_address: str | None = None) -> dic
         return geo
 
     # Pincode Only Check
-    geo = _olamaps_pincode_lookup(cleaned_pin) or _nominatim_pincode_lookup(cleaned_pin)
+    geo = _mapbox_pincode_lookup(cleaned_pin) or _nominatim_pincode_lookup(cleaned_pin)
     if not geo:
         if db_addr:
             region = get_telecom_circle(state=db_addr.state, city=db_addr.city, pincode=cleaned_pin)
@@ -532,6 +680,7 @@ def qualify(db: Session, pincode: str, street_address: str | None = None) -> dic
     return geo
 
 
+@trace
 def select_service_address(db: Session, pincode: str, speed_mbps: int) -> dict:
     address = db.scalar(select(Address).where(Address.pincode == pincode, Address.serviceable.is_(True)))
     if address:

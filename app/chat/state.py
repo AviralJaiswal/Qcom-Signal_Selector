@@ -1,4 +1,5 @@
 from typing import Literal, TypedDict
+from app.utils.trace import trace, trace_async
 
 
 ResponseMode = Literal["deterministic", "gemini"]
@@ -37,6 +38,7 @@ class ConversationState(TypedDict):
     pincode_unserviceable: bool
 
 
+@trace
 def empty_state(session_id: str) -> ConversationState:
     return {
         "session_id": session_id,
@@ -72,6 +74,7 @@ def empty_state(session_id: str) -> ConversationState:
     }
 
 
+@trace
 def state_from_session(session_id: str, stored: dict | None) -> ConversationState:
     state = empty_state(session_id)
     if not stored:

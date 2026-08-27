@@ -4,8 +4,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.appointment import AppointmentSlot
+from app.utils.trace import trace, trace_async
 
 
+@trace
 def available_slots(db: Session, fdh_id: str, limit: int = 200) -> list[dict]:
     """Return every configured V1 demo slot for the selected FDH.
 
@@ -23,6 +25,7 @@ def available_slots(db: Session, fdh_id: str, limit: int = 200) -> list[dict]:
              "fdh_id": slot.fdh_id} for slot in slots]
 
 
+@trace
 def select_slot(db: Session, slot_id: str, fdh_id: str) -> dict:
     if slot_id.startswith("DEMO-"):
         parts = slot_id.split("-")

@@ -2,12 +2,14 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
+from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 
+@trace
 def retrieve_plans(query: str, plans: list[Any], limit: int = 5) -> list[Any]:
     """Use Chroma when available; fall back to a rank-matching algorithm over plan catalogs and activity logs."""
     try:
@@ -39,6 +41,7 @@ def retrieve_plans(query: str, plans: list[Any], limit: int = 5) -> list[Any]:
         )[:limit]
 
 
+@trace
 def search_knowledge_base(query: str, limit: int = 5) -> list[dict]:
     """Semantic vector search over faq_knowledge_base.md using ChromaDB embeddings collection."""
     results = []

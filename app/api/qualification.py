@@ -5,6 +5,7 @@ from app.schemas.api import AddressQualificationRequest, AddressQualificationDat
 from app.schemas.envelope import ResponseEnvelope, success_response
 from app.services.address_service import qualify
 from app.chat.session import session_store
+from app.utils.trace import trace, trace_async
 
 router = APIRouter(prefix="/api/v1", tags=["Address Qualification API"])
 legacy_router = APIRouter(tags=["Legacy Qualification API"])
@@ -12,8 +13,9 @@ legacy_router = APIRouter(tags=["Legacy Qualification API"])
 
 @router.post("/qualification/address", response_model=ResponseEnvelope[AddressQualificationData])
 @router.post("/addresses/qualify")
+@trace
 def qualify_address(request: AddressQualificationRequest, db: Session = Depends(get_db)):
-    """Step 2: Address Qualification API - Validate pincode (2A) or full street address (2B) via OLA Maps / OpenStreetMap."""
+    """Step 2: Address Qualification API - Validate pincode (2A) or full street address (2B) via Mapbox / OpenStreetMap."""
     result = qualify(db, request.pincode, request.street_address)
     session_store.update(request.session_id, {
         "qualified_address": result,
@@ -34,6 +36,7 @@ def qualify_address(request: AddressQualificationRequest, db: Session = Depends(
 
 
 @legacy_router.post("/qualify-address")
+@trace
 def qualify_address_legacy(request: AddressQualificationRequest, db: Session = Depends(get_db)):
     result = qualify(db, request.pincode, request.street_address)
     session_store.update(request.session_id, {

@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 
 from app.config import get_settings
 from app.assistant.llm import generate
+from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ FAQ_FILE = DATA_DIR / "faq_knowledge_base.md"
 COLLECTION_NAME = "faq_collection"
 
 
+@trace
 def load_and_chunk_faq_md() -> List[Dict[str, Any]]:
     """Parse data/faq_knowledge_base.md into semantic chunks based on headers."""
     if not FAQ_FILE.exists():
@@ -48,11 +50,13 @@ class FastTextEmbeddingFunction:
     def embed_documents(self, input: list[str]) -> list[list[float]]:
         return self(input)
 
+    @trace
     def embed_query(self, input: list[str] | str) -> list[list[float]]:
         if isinstance(input, str):
             input = [input]
         return self(input)
 
+    @trace
     def __call__(self, input: list[str]) -> list[list[float]]:
         embeddings = []
         for doc in input:
@@ -65,6 +69,7 @@ class FastTextEmbeddingFunction:
         return embeddings
 
 
+@trace
 def _get_collection(client, embed_fn):
     try:
         return client.get_or_create_collection(name=COLLECTION_NAME, embedding_function=embed_fn)
@@ -76,6 +81,7 @@ def _get_collection(client, embed_fn):
         return client.get_or_create_collection(name=COLLECTION_NAME, embedding_function=embed_fn)
 
 
+@trace
 def init_faq_chroma() -> bool:
     """Initialize ChromaDB and load/chunk faq_knowledge_base.md into 'faq_collection'."""
     settings = get_settings()
@@ -98,6 +104,7 @@ def init_faq_chroma() -> bool:
     return False
 
 
+@trace
 def query_faq_collection(query: str, top_k: int = 3) -> List[str]:
     """Retrieve top matching FAQ chunks from ChromaDB vector collection."""
     settings = get_settings()
@@ -148,30 +155,27 @@ def query_faq_collection(query: str, top_k: int = 3) -> List[str]:
     return [text for score, text in scored[:top_k] if score > 0]
 
 
+@trace
 def generate_grounded_faq_answer(user_query: str, retrieved_chunks: List[str]) -> str:
     """Dynamic RAG synthesis grounded on telecom knowledge base via model prompt instructions."""
     context = "\n---\n".join(retrieved_chunks) if retrieved_chunks else ""
     
-    prompt = f"""You are Signal Selector's AI Broadband Specialist. Keep answers clear, professional, friendly, and under 90 words.
-
-GUIDELINES:
-1. General Plan Queries (BEFORE address): If the customer asks about available plans, pricing, speeds, or options (e.g. "what are the plans available?"), list our standard India-wide plans clearly with their monthly rates:
-   - Basic 40M (40 Mbps): ₹499/month
-   - Standard 100M (100 Mbps): ₹799/month (includes Disney+ Hotstar)
-   - Entertainment 200M (200 Mbps): ₹999/month (includes Hotstar, Prime, Zee5)
-   - Professional 300M (300 Mbps): ₹1,499/month (includes Netflix, Prime, Hotstar, SonyLIV, Zee5)
-   - Max 500M (500 Mbps): ₹2,499/month
-   - Infinity 1G (1 Gbps): ₹3,999/month
-   Do NOT ask for an address or location for general plan inquiries. NEVER say "I don't have plan details".
-
-2. Service & FAQ Queries: Answer questions about installation timelines/fees, Wi-Fi 6 routers, KYC documents, SLAs, refunds, and support (customer.support@qcom.com) directly from the context without asking for an address.
-
-3. Order & Serviceability Intent: If and ONLY if the customer explicitly expresses intent to check coverage/serviceability or purchase/get a new connection, ask for their COMPLETE STREET ADDRESS (house/flat number, building name, street, locality, and pincode). Both full street address and pincode are mandatory for exact premises qualification. Do NOT ask for just a 6-digit PIN code alone.
+    prompt = f"""Generate a grounded customer-facing broadband FAQ answer using only the supplied knowledge context and standard plan facts.
 
 Context:
-{context}
+retrieved_context: {context}
+user_query: {user_query}
+- If retrieved_context is empty, answer only from the standard plan facts below or say the detail is not available.
+- If user_query is ambiguous, answer the most likely broadband FAQ without inventing policy or technical details.
 
-User Query: {user_query}"""
+Requirements:
+- Keep the tone clear, professional, and friendly.
+- Maximum 90 words.
+- No markdown.
+- Plan FAQ: for general plan, pricing, speed, package, or recommendation questions before ordering, list the standard India-wide plans with rates when relevant: Basic 40M 40 Mbps Rs.499/month; Standard 100M 100 Mbps Rs.799/month with Disney+ Hotstar; Entertainment 200M 200 Mbps Rs.999/month with Hotstar, Prime, Zee5; Professional 300M 300 Mbps Rs.1499/month with Netflix, Prime, Hotstar, SonyLIV, Zee5; Max 500M 500 Mbps Rs.2499/month; Infinity 1G 1 Gbps Rs.3999/month.
+- Service FAQ: for installation, Wi-Fi router, KYC, SLA, refund, troubleshooting, policy, or support questions, answer directly from retrieved_context. Do not ask for address or location for those questions or for general plan questions.
+- Order intent: if and only if user_query explicitly asks to check coverage/serviceability or purchase/get a new connection, ask for complete street address and PIN code. Both complete street address and PIN code are mandatory for exact premise qualification. If the customer is not ready to share an address, say they can share it whenever you're ready.
+"""
 
     answer_text = None
     try:

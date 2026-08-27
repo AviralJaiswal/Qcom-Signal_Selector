@@ -5,12 +5,14 @@ from app.schemas.api import OrderRequest, OrderData
 from app.schemas.envelope import ResponseEnvelope, success_response
 from app.services.order_service import create_order
 from app.chat.session import session_store
+from app.utils.trace import trace, trace_async
 
 router = APIRouter(prefix="/api/v1", tags=["Order API"])
 legacy_router = APIRouter(tags=["Legacy Order API"])
 
 
 @router.post("/orders", response_model=ResponseEnvelope[OrderData])
+@trace
 def place_order(request: OrderRequest, db: Session = Depends(get_db)):
     """Step 7: Order API - Finalize customer broadband order."""
     try:
@@ -26,6 +28,7 @@ def place_order(request: OrderRequest, db: Session = Depends(get_db)):
 
 
 @legacy_router.post("/create-order")
+@trace
 def create_order_legacy(request: OrderRequest, db: Session = Depends(get_db)):
     try:
         data = create_order(db, request.session_id, session_store.get(request.session_id))

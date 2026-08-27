@@ -6,10 +6,12 @@ import logging
 from typing import Any
 
 from app.assistant.llm import generate
+from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
 
 
+@trace
 def recommend_plan_conversational(plans: list[dict[str, Any]], user_query: str) -> tuple[str, dict[str, Any] | None]:
     """Evaluate user's use case against active plans and return (intro_message, recommended_plan_dict)."""
     if not plans:
@@ -23,13 +25,23 @@ def recommend_plan_conversational(plans: list[dict[str, Any]], user_query: str) 
 
     context_str = "\n".join(plans_context)
 
-    prompt = f"""You are Signal Selector's Telecom Plan Advisor.
-Available Active Plans:
-{context_str}
+    prompt = """Select the single best matching active broadband plan for the customer's stated usage needs.
 
-Task: Select the SINGLE best matching plan from the list above based on number of network users, connected devices, and primary purpose (such as 4K streaming, gaming, or work from home).
-Return JSON ONLY in this format:
-{{"recommended_plan_name": "exact plan name from list above", "short_intro": "Based on your requirements, here is the best recommended plan for you:"}}"""
+Context:
+available_plans:
+{context_str}
+user_query: {user_query}
+- If user_query is incomplete, prefer the best balanced plan by speed and value.
+- If two plans appear equally suitable, choose the lower monthly price.
+
+Requirements:
+- Return exactly one JSON object with keys "recommended_plan_name" and "short_intro".
+- recommended_plan_name must exactly match one plan name from available_plans.
+- Base the choice on number of users, connected devices, and primary purpose such as 4K streaming, gaming, work from home, or smart-home use.
+- short_intro must be customer-facing, friendly, and no more than 18 words.
+- Do not include markdown, code fences, explanations, rankings, or extra keys.
+- Maximum 180 characters for the full JSON response.
+""".format(context_str=context_str, user_query=user_query)
 
     try:
         raw_res = generate(prompt, temperature=0.2, timeout=5, max_tokens=100)

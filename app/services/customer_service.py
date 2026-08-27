@@ -1,8 +1,10 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.models.customer import Customer
+from app.utils.trace import trace, trace_async
 
 
+@trace
 def find_or_validate(db: Session, customer_id: str | None = None, name: str | None = None, phone: str | None = None,
                      email: str | None = None, existing_pincode: str | None = None) -> dict:
     customer = db.scalar(select(Customer).where(Customer.customer_id == customer_id)) if customer_id else None

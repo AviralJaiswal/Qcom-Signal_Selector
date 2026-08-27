@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.chat.session import session_store
 from app.schemas.api import SessionRequest, SessionData
 from app.schemas.envelope import ResponseEnvelope, success_response
+from app.utils.trace import trace, trace_async
 
 router = APIRouter(prefix="/api/v1", tags=["Signal Selector Session API"])
 legacy_router = APIRouter(tags=["Legacy Session API"])
@@ -12,6 +13,7 @@ from app.services.welcome_service import generate_dynamic_greeting
 
 @router.post("/chat/welcome")
 @router.get("/chat/welcome")
+@trace
 def welcome_chat(request: SessionRequest = None):
     """Dynamic LLM Greeting Endpoint - Generates fresh Gemini greeting at temp 0.85."""
     session_id = (request.session_id if request else None) or uuid4().hex
@@ -27,6 +29,7 @@ def welcome_chat(request: SessionRequest = None):
 
 
 @router.post("/session", response_model=ResponseEnvelope[SessionData])
+@trace
 def create_session(request: SessionRequest):
     """Step 1: Signal Selector Session API - Create or initialize a session."""
     session_id = request.session_id or uuid4().hex
@@ -43,6 +46,7 @@ def create_session(request: SessionRequest):
 
 
 @legacy_router.post("/welcome")
+@trace
 def welcome_legacy(request: SessionRequest):
     session_id = request.session_id or uuid4().hex
     session_store.create(session_id)

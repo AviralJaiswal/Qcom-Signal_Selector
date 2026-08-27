@@ -4,8 +4,10 @@ from app.models.plan import Plan
 from app.rag.retriever import retrieve_plans
 from app.config import get_settings
 from app.services.address_service import get_telecom_circle
+from app.utils.trace import trace, trace_async
 
 
+@trace
 def _gemini_reasons(plans: list[dict], preference: str | None) -> dict[str, str]:
     settings = get_settings()
     if settings.llm_provider.lower() != "gemini" or not settings.gemini_api_key:
@@ -31,6 +33,7 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 REGIONAL_PLANS_FILE = DATA_DIR / "regional_plans_catalog.json"
 
 
+@trace
 def _load_regional_plans() -> dict:
     """Dynamically load the regional plans catalog from the JSON data store.
 
@@ -46,6 +49,7 @@ def _load_regional_plans() -> dict:
     except Exception:
         return {}
 
+@trace
 def recommend(db: Session, max_speed: int | None = None, preference: str | None = None,
               state_or_region: str | None = None, use_gemini_reasoning: bool = True) -> list[dict]:
     """Recommend plans dynamically tailored by exact Telecom Circle.

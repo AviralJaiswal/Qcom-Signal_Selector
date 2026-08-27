@@ -1,3 +1,4 @@
+import logging
 import sys
 from pathlib import Path
 
@@ -25,6 +26,20 @@ from app.api import (
 )
 
 from contextlib import asynccontextmanager
+
+
+logging.getLogger("uvicorn.access").disabled = False
+logging.getLogger("uvicorn.access").propagate = True
+logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+logging.getLogger("uvicorn").setLevel(logging.INFO)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%H:%M:%S",
+    force=True,
+)
+
 
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI):

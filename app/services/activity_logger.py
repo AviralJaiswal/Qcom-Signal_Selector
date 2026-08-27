@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
+from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +10,7 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 ACTIVITY_FILE = DATA_DIR / "activity.jsonl"
 
 
+@trace
 def log_activity(event_type: str, session_id: str, payload: dict | None = None) -> None:
     """Log customer sessions, query events, and booking actions to activity.jsonl."""
     try:

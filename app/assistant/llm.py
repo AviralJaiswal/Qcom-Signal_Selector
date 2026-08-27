@@ -10,6 +10,7 @@ import requests
 
 from app.config import get_settings
 from app.services.http_client import requests_verify_setting
+from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ class LLMError(Exception):
         self.endpoint = endpoint
         self.retryable = retryable
 
+    @trace
     def user_message(self) -> str:
         if self.status_code == 402:
             return (
@@ -49,6 +51,7 @@ class LLMError(Exception):
         return "The AI assistant is temporarily unavailable. Please try again."
 
 
+@trace
 def _safe_response_body(response: requests.Response | None) -> str:
     if response is None:
         return ""
@@ -58,6 +61,7 @@ def _safe_response_body(response: requests.Response | None) -> str:
         return ""
 
 
+@trace
 def _raise_for_http_error(response: requests.Response, *, model: str | None = None, endpoint: str | None = None) -> None:
     status_code = response.status_code
     body = _safe_response_body(response)
@@ -73,11 +77,13 @@ def _raise_for_http_error(response: requests.Response, *, model: str | None = No
     )
 
 
+@trace
 def llm_available() -> bool:
     settings = get_settings()
     return bool(settings.gemini_api_key or settings.openrouter_api_key or settings.openai_api_key)
 
 
+@trace
 def _call_gemini_rest(
     messages: list[dict[str, str]],
     api_key: str,
@@ -121,6 +127,7 @@ def _call_gemini_rest(
     return None
 
 
+@trace
 def chat(
     messages: list[dict[str, str]],
     *,
@@ -219,6 +226,7 @@ def chat(
     return None
 
 
+@trace
 def generate(
     prompt: str,
     *,
@@ -239,6 +247,7 @@ def generate(
     )
 
 
+@trace
 def generate_json(
     prompt: str,
     *,
@@ -269,50 +278,58 @@ def generate_json(
         return None
 
 
+@trace
 def classify_conversation_route(message: str, session: dict) -> str | None:
     """Return TRANSACTION or KNOWLEDGE using strict JSON classification."""
 
-    prompt = f"""Classify this customer message for a telecom broadband assistant.
+    prompt = """Classify the customer message as either a transaction-flow action or a knowledge/FAQ question for a telecom broadband assistant.
 
-Return JSON exactly like:
-{{"route": "TRANSACTION"}}
-or
-{{"route": "KNOWLEDGE"}}
+Context:
+session_mode: {session_mode}
+workflow_state: {workflow_state}
+customer_message: {message}
+- If customer_message is empty, ambiguous, or only asks for information, choose KNOWLEDGE.
+- If session_mode or workflow_state is missing, classify from customer_message alone.
 
-Allowed route values (strict): TRANSACTION, KNOWLEDGE
-
-TRANSACTION covers:
-- explicitly starting an order ("I want a new connection", "book now", "buy plan")
-- submitting a 6-digit postal PIN code or full street address
-- selecting a specific plan card to purchase/checkout
-- providing customer name, phone, email, or appointment slot
-
-KNOWLEDGE covers:
-- asking which plan is best for video calls, work from home, gaming, or streaming
-- general inquiries about broadband plans, prices, speeds, OTT benefits, routers, installation fees, policies, or troubleshooting
-- any question asking for recommendations or explanations before deciding to order
-
-Session mode: {session.get("mode")}
-Workflow state: {session.get("workflow_state")}
-Customer message: {message}"""
-
-    parsed = generate_json(
-        prompt,
-        system="Return strict JSON with a single route field. No markdown.",
-        timeout=12,
+Requirements:
+- Return exactly one JSON object with one key named "route".
+- route must be exactly one of: TRANSACTION, KNOWLEDGE.
+- Choose TRANSACTION for explicit order intent, coverage/serviceability checks, new connection requests, valid 6-digit PIN codes, full street addresses, plan purchase/checkout selection, customer contact details, or appointment slots.
+- Choose KNOWLEDGE for plan comparisons, recommendations before purchase, prices, speeds, OTT benefits, routers, installation fees, policies, troubleshooting, or general broadband questions.
+- If a message contains both an FAQ and an explicit order action, choose TRANSACTION.
+- Do not include markdown, code fences, explanations, or extra keys.
+- Maximum 30 characters.
+""".format(
+        session_mode=session.get("mode"),
+        workflow_state=session.get("workflow_state"),
+        message=message,
     )
+
+    try:
+        parsed = generate_json(
+            prompt,
+            system="Return strict JSON with a single route field. No markdown.",
+            timeout=12,
+        )
+    except Exception as exc:
+        logger.warning("Conversation route JSON classification failed: %s", exc)
+        parsed = None
     if parsed:
         route = str(parsed.get("route", "")).strip().upper()
         if route in {"TRANSACTION", "KNOWLEDGE"}:
             return route
 
     # Legacy token fallback when JSON parsing fails
-    result = generate(
-        prompt,
-        system="Reply with only TRANSACTION or KNOWLEDGE.",
-        timeout=12,
-        temperature=0,
-    )
+    try:
+        result = generate(
+            prompt,
+            system="Reply with only TRANSACTION or KNOWLEDGE.",
+            timeout=12,
+            temperature=0,
+        )
+    except Exception as exc:
+        logger.warning("Conversation route fallback classification failed: %s", exc)
+        return None
     if not result:
         return None
     normalized = result.strip().upper()

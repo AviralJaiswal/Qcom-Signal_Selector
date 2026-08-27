@@ -1,10 +1,12 @@
 import logging
 import random
 from app.assistant.llm import generate
+from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
 
 
+@trace
 def generate_dynamic_greeting(profile: str = "general") -> str:
     """Generate dynamic welcome greeting strictly using AI model prompt instructions."""
     styles = [
@@ -17,15 +19,47 @@ def generate_dynamic_greeting(profile: str = "general") -> str:
 
     if profile == "existing":
         prompt = (
-            f"{chosen_style} Welcome an existing customer to the Signal Selector portal. Ask how you can assist "
-            "with their current plan, connection troubleshooting, router specs, or plan upgrades. "
-            "Keep it under 35 words total. Do not use markdown."
+            """Generate a concise customer-facing welcome greeting for an existing Signal Selector customer.
+
+Context:
+chosen_style: {chosen_style}
+profile: {profile}
+- If profile is existing, focus on current-account support and upgrades.
+
+Requirements:
+- Follow chosen_style naturally.
+- Welcome the customer back to the Signal Selector portal.
+- Ask how you can help with current plan, connection troubleshooting, router specs, or plan upgrades.
+- Do not ask for address, PIN code, payment, booking, or appointment details.
+- Maximum 35 words.
+- No markdown.
+"""
+        ).format(
+            chosen_style=chosen_style,
+            profile=profile,
         )
     else:
         prompt = (
-            f"{chosen_style} Ask if they have questions about plans, router specs, installation timelines, "
-            "or if they would like to share their complete street address (including building/flat number, street name, area, and pincode) to check coverage and available fiber plans via Ola Maps API. "
-            "Do NOT ask for just a 6-digit pincode; ask for their complete street address. Keep it under 35 words total. Do not use markdown."
+            """Generate a concise customer-facing welcome greeting for a new Signal Selector broadband visitor.
+
+Context:
+chosen_style: {chosen_style}
+profile: {profile}
+- If profile is missing or not existing, treat the visitor as a general new-service shopper.
+
+Requirements:
+- Follow chosen_style naturally.
+- Offer help with plans, router specs, installation timelines, or serviceability.
+- If mentioning serviceability, ask for a complete street address with building/flat number, street name, area, and PIN code.
+- Do NOT ask for just a 6-digit pincode; ask for their complete street address.
+- Mention that exact coverage and local plans are checked through our mapping provider.
+- Do not mention payment, booking, or appointments.
+- Maximum 35 words.
+- No markdown.
+"""
+        ).format(
+            chosen_style=chosen_style,
+            profile=profile,
         )
 
     try:
@@ -37,7 +71,7 @@ def generate_dynamic_greeting(profile: str = "general") -> str:
 
     if profile == "existing":
         return "Welcome back! I am your Signal Selector assistant. How can I help with your account, plan upgrades, or technical support today?"
-    return "Welcome to Signal Selector! How can I help you today? Please share your complete street address (including building/flat number, street name, area, and pincode) so we can check exact fiber availability and fetch local plans via Ola Maps."
+    return "Welcome to Signal Selector! How can I help you today? Please share your complete street address (including building/flat number, street name, area, and pincode) so we can check exact fiber availability and fetch local plans."
 
 
 

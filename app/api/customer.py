@@ -5,12 +5,14 @@ from app.schemas.api import CustomerRequest, CustomerData
 from app.schemas.envelope import ResponseEnvelope, success_response
 from app.services.customer_service import find_or_validate
 from app.chat.session import session_store
+from app.utils.trace import trace, trace_async
 
 router = APIRouter(prefix="/api/v1", tags=["Customer API"])
 legacy_router = APIRouter(tags=["Legacy Customer API"])
 
 
 @router.post("/customers", response_model=ResponseEnvelope[CustomerData])
+@trace
 def save_customer_details(request: CustomerRequest, db: Session = Depends(get_db)):
     """Step 4: Customer Details API - Capture and validate customer contact details."""
     try:
@@ -23,6 +25,7 @@ def save_customer_details(request: CustomerRequest, db: Session = Depends(get_db
 
 
 @router.get("/customers/{customer_id}")
+@trace
 def get_customer_details(customer_id: str, db: Session = Depends(get_db)):
     """API 03: GET /api/v1/customers/{customerId} - Retrieve account history from CRM."""
     from app.models.customer import Customer
@@ -44,6 +47,7 @@ def get_customer_details(customer_id: str, db: Session = Depends(get_db)):
 
 
 @legacy_router.post("/customer-details")
+@trace
 def customer_details_legacy(request: CustomerRequest, db: Session = Depends(get_db)):
     try:
         data = find_or_validate(db, **request.customer.model_dump())

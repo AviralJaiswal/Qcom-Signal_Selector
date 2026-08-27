@@ -1,4 +1,5 @@
 from typing import Any
+from app.utils.trace import trace, trace_async
 
 
 class SessionStore:
@@ -14,6 +15,7 @@ class SessionStore:
     def exists(self, session_id: str) -> bool:
         return session_id in self._data
 
+    @trace
     def update(self, session_id: str, values: dict[str, Any]) -> dict[str, Any]:
         self.get(session_id).update(values)
         return self.get(session_id)
