@@ -203,19 +203,26 @@
   letter-spacing: 0.3px !important;
 }
 
-/* Global Page Scrollbar Removal */
+/* Zoom & High-DPI Friendly Page Layout */
 html, body {
   margin: 0 !important;
   padding: 0 !important;
-  height: 100vh !important;
-  max-height: 100vh !important;
-  overflow: hidden !important;
+  min-height: 100vh !important;
+  height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scrollbar-width: none !important; /* Outer browser scrollbar hidden cleanly */
+  -ms-overflow-style: none !important;
+}
+
+html::-webkit-scrollbar, body::-webkit-scrollbar {
+  display: none !important; /* Outer browser scrollbar hidden cleanly */
 }
 
 #root {
-  height: 100vh !important;
-  max-height: 100vh !important;
-  overflow: hidden !important;
+  min-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 .topbar {
@@ -275,7 +282,7 @@ html, body {
 }
 
 .brand-title {
-  font-size: 17px !important;
+  font-size: 18px !important;
   font-weight: 700 !important;
   color: #1F2937 !important;
   letter-spacing: -0.3px !important;
@@ -284,16 +291,17 @@ html, body {
 .brand-ai-badge {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 4px !important;
+  gap: 5px !important;
   background: linear-gradient(135deg, #FFF0F1, #FFE5E7) !important;
-  color: #E31B23 !important;
+  color: #BE123C !important;
   border: 1px solid #FEE2E2 !important;
-  font-size: 10px !important;
+  font-size: 12px !important;
   font-weight: 700 !important;
-  padding: 2px 8px !important;
+  padding: 3px 10px !important;
   border-radius: 20px !important;
-  margin-left: 4px !important;
+  margin-left: 6px !important;
   box-shadow: 0 2px 6px rgba(227, 27, 35, 0.08) !important;
+  white-space: nowrap !important;
 }
 
 /* Interactive Top Navigation Tabs */
@@ -382,25 +390,38 @@ html, body {
 }
 
 .app-shell {
-  height: 100vh !important;
-  max-height: 100vh !important;
+  min-height: 100vh !important;
   display: flex !important;
   flex-direction: column !important;
+  justify-content: space-between !important;
   background: radial-gradient(circle at 12% 18%, rgba(227, 27, 35, 0.09) 0%, transparent 40%),
               radial-gradient(circle at 88% 82%, rgba(227, 27, 35, 0.07) 0%, transparent 45%),
               radial-gradient(circle at 50% 40%, rgba(255, 240, 241, 0.85) 0%, transparent 65%),
               linear-gradient(180deg, #FAFAFD 0%, #F1F4F9 100%) !important;
-  overflow: hidden !important;
+  box-sizing: border-box !important;
 }
 
-/* Chat container fixed sizing & inner scrolling */
+/* Footer styling for high-DPI zoom safety */
+footer {
+  flex: 0 0 auto !important;
+  text-align: center !important;
+  color: #64748B !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 12px 20px 18px !important;
+  margin-top: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* Chat container responsive sizing */
 .other-view {
   max-width: 900px !important;
   width: calc(100% - 30px) !important;
-  margin: 15px auto !important;
+  margin: 8px auto !important;
   flex: 1 1 auto !important;
-  height: calc(100vh - 110px) !important;
-  max-height: calc(100vh - 110px) !important;
+  height: calc(100vh - 145px) !important;
+  max-height: calc(100vh - 145px) !important;
+  min-height: 380px !important;
   display: flex !important;
   flex-direction: column !important;
   border-radius: 20px !important;
@@ -408,6 +429,7 @@ html, body {
   border: 1px solid #e5e7eb !important;
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08) !important;
   overflow: hidden !important;
+  box-sizing: border-box !important;
 }
 
 .other-head {
@@ -417,10 +439,11 @@ html, body {
 }
 
 .other-messages {
-  flex: 1 1 auto !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  padding: 24px !important;
+  padding: 20px 24px !important;
   scrollbar-width: thin !important;
   scrollbar-color: #E31B23 #f1f5f9 !important;
 }
@@ -445,6 +468,8 @@ html, body {
   flex: 0 0 auto !important;
   background: #ffffff !important;
   border-top: 1px solid #f1f5f9 !important;
+  padding: 12px 18px 14px !important;
+  box-sizing: border-box !important;
 }
 
 /* Interactive Animations & Micro-Interactions in Prodapt Red & White Theme */
@@ -557,24 +582,24 @@ html, body {
 }
 
 .landing-copy h1 {
-  font: 800 clamp(38px, 4.5vw, 56px)/1.05 'Space Grotesk', sans-serif !important;
-  letter-spacing: -2px !important;
+  font: 800 clamp(30px, 3.6vw, 46px)/1.15 'Space Grotesk', sans-serif !important;
+  letter-spacing: -1.5px !important;
   margin: 14px 0 20px !important;
   color: #0F172A !important;
 }
 
 .landing-copy h1 span.title-main {
-  background: linear-gradient(135deg, #0F172A 0%, #1E293B 55%, #E31B23 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
+  color: #0F172A !important;
+  display: inline-block !important;
+  white-space: nowrap !important;
 }
 
-.landing-copy h1 em {
-  background: linear-gradient(110deg, #E31B23 0%, #FF383E 50%, #A60C12 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
+.landing-copy h1 em.title-sub-wrap {
   font-style: normal !important;
   font-weight: 800 !important;
+  color: #E31B23 !important;
+  display: inline-block !important;
+  white-space: nowrap !important;
 }
 
 .landing-copy p {
@@ -767,14 +792,27 @@ html, body {
   box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4) !important;
 }
 
-.dark-mode .brand-title {
+.dark-mode .brand-interactive:hover {
+  background: rgba(227, 27, 35, 0.18) !important;
+}
+
+.dark-mode .brand-title,
+.dark-mode .brand-interactive:hover .brand-title {
   color: #F8FAFC !important;
 }
 
+.dark-mode .brand-divider {
+  color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.dark-mode .brand-ai-badge {
+  background: linear-gradient(135deg, rgba(227, 27, 35, 0.28), rgba(255, 77, 82, 0.18)) !important;
+  color: #FF8085 !important;
+  border-color: rgba(227, 27, 35, 0.45) !important;
+}
+
 .dark-mode .landing-copy h1 span.title-main {
-  background: linear-gradient(135deg, #FFFFFF 0%, #E2E8F0 55%, #FF4D52 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
+  color: #F8FAFC !important;
 }
 
 .dark-mode .landing-copy p {
@@ -852,6 +890,192 @@ html, body {
   transform: scale(1.06) !important;
   box-shadow: 0 4px 14px rgba(227, 27, 35, 0.35) !important;
 }
+
+.prodapt-brand-logo {
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 1px !important;
+}
+
+.prodapt-mark-svg {
+  margin-bottom: 2px !important;
+  flex-shrink: 0 !important;
+  transition: transform 0.2s ease !important;
+}
+
+.brand-interactive:hover .prodapt-mark-svg {
+  transform: scale(1.15) !important;
+}
+
+.prodapt-brand-text {
+  font-family: 'DM Sans', -apple-system, sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: #E31B23 !important;
+  letter-spacing: -0.4px !important;
+  line-height: 1 !important;
+}
+
+.dark-mode .prodapt-brand-text {
+  color: #E31B23 !important;
+}
+
+/* Dynamic Interactive Letter-by-Letter Glitter Gradient Hover Effect (Subtle, non-3D, clean) */
+.glitter-heading {
+  margin: 14px 0 20px !important;
+  user-select: text !important;
+  cursor: default !important;
+}
+
+.glitter-heading *,
+.glitter-text-wrap *,
+.glitter-word * {
+  cursor: default !important;
+}
+
+.glitter-text-wrap {
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  align-items: baseline !important;
+  max-width: 100% !important;
+}
+
+.glitter-word {
+  display: inline-block !important;
+  white-space: nowrap !important;
+}
+
+.glitter-char {
+  display: inline-block !important;
+  position: relative !important;
+  cursor: default !important;
+  user-select: text !important;
+  transition: all 0.25s ease !important;
+  transform: none !important;
+}
+
+.glitter-char.main-char {
+  color: #0F172A !important;
+}
+
+.glitter-char.em-char {
+  color: #E31B23 !important;
+  font-style: normal !important;
+  font-weight: 800 !important;
+}
+
+.dark-mode .glitter-char.main-char {
+  color: #F8FAFC !important;
+}
+
+.dark-mode .glitter-char.em-char {
+  color: #FF4D52 !important;
+}
+
+/* Very light glitterish sparkle hover effect (No stark white color swap, no 3D movement) */
+.glitter-char:hover {
+  animation: charLightGlitterSparkle 1.2s ease-in-out infinite alternate !important;
+  z-index: 5 !important;
+}
+
+.glitter-char.main-char:hover {
+  color: #0F172A !important;
+  text-shadow: 0 0 8px rgba(227, 27, 35, 0.4), 0 0 12px rgba(255, 255, 255, 0.8) !important;
+}
+
+.glitter-char.em-char:hover {
+  color: #E31B23 !important;
+  text-shadow: 0 0 10px rgba(227, 27, 35, 0.6), 0 0 14px rgba(255, 255, 255, 0.9) !important;
+}
+
+.dark-mode .glitter-char.main-char:hover {
+  color: #FFFFFF !important;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.8), 0 0 14px rgba(227, 27, 35, 0.6) !important;
+}
+
+.dark-mode .glitter-char.em-char:hover {
+  color: #FF4D52 !important;
+  text-shadow: 0 0 10px rgba(255, 77, 82, 0.8), 0 0 16px rgba(255, 255, 255, 0.9) !important;
+}
+
+@keyframes charLightGlitterSparkle {
+  0% {
+    filter: drop-shadow(0 0 2px rgba(227, 27, 35, 0.3)) drop-shadow(0 0 3px rgba(255, 255, 255, 0.7));
+    opacity: 0.92;
+  }
+  50% {
+    filter: drop-shadow(0 0 6px rgba(227, 27, 35, 0.65)) drop-shadow(0 0 8px rgba(255, 255, 255, 1));
+    opacity: 1;
+  }
+  100% {
+    filter: drop-shadow(0 0 2px rgba(227, 27, 35, 0.3)) drop-shadow(0 0 3px rgba(255, 255, 255, 0.7));
+    opacity: 0.92;
+  }
+}
+
+/* Prodapt Red Triangle Global Custom Cursor for ALL Clickable & Interactive Elements */
+button,
+button:hover,
+button:active,
+a,
+a:hover,
+a:active,
+select,
+summary,
+[role="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="button"],
+input[type="checkbox"],
+input[type="radio"],
+.brand,
+.brand-interactive,
+.theme-star-badge,
+.back-link,
+.quick-chip,
+.entry-btn,
+.red-btn,
+.customer-submit,
+.appointment-picker button,
+.plan-card button,
+.payment-box button,
+.glowing-title-hover,
+.help,
+.nav-tab,
+.mode-badge,
+.chips-row button,
+[onClick],
+[onClick] * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'%3E%3Cpolygon points='0,0 16,0 16,16' fill='%23E31B23'/%3E%3C/svg%3E") 0 0, pointer !important;
+}
+
+/* Customer Section Width Consistency Across Filling, Editing, and Saved States */
+.customer-card-content,
+.other-message .customer-card-content {
+  width: 540px !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  flex: 0 0 auto !important;
+}
+
+/* Animated Message Replacement for Customer Details Updates */
+.message-animate-in {
+  animation: msgAnimateIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes msgAnimateIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
 
 
 

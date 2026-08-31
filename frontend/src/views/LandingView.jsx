@@ -1,5 +1,26 @@
 import React, { useState } from 'react'
-import { Check, ChevronRight, MessageCircle, Sparkles, Wifi, Zap, MapPin, Bot, ShieldCheck, Sun, Moon } from 'lucide-react'
+import { Check, ChevronRight, MessageCircle, Sparkles, Radio, Wifi, Zap, MapPin, Bot, ShieldCheck, Sun, Moon, Compass } from 'lucide-react'
+
+function GlitterLetterText({ text, className, isEm = false }) {
+  const words = text.split(' ')
+  return (
+    <span className={`glitter-text-wrap ${className || ''}`}>
+      {words.map((word, wIdx) => (
+        <span key={wIdx} className="glitter-word">
+          {word.split('').map((char, cIdx) => (
+            <span
+              key={cIdx}
+              className={`glitter-char ${isEm ? 'em-char' : 'main-char'}`}
+            >
+              {char}
+            </span>
+          ))}
+          {wIdx < words.length - 1 && <span className="glitter-char space-char">&nbsp;</span>}
+        </span>
+      ))}
+    </span>
+  )
+}
 
 export function LandingView({ setView, theme, setTheme }) {
   const [spinning, setSpinning] = useState(false)
@@ -28,7 +49,13 @@ export function LandingView({ setView, theme, setTheme }) {
             {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
           </span>
         </div>
-        <h1><span className="title-main">Signal Selector</span><br /><em>Connected Intelligence.</em></h1>
+        <h1 className="glitter-heading">
+          <GlitterLetterText text="Signal Selector" className="title-main" />
+          <br />
+          <em className="title-sub-wrap">
+            <GlitterLetterText text="Connected Intelligence" isEm={true} />
+          </em>
+        </h1>
         <p>We help bring services and users together. Select your path to explore pincode-matched fiber plans or manage your existing service.</p>
         
         <div className="interactive-features-bar">
@@ -56,8 +83,8 @@ export function LandingView({ setView, theme, setTheme }) {
 
         <div className="entry-options">
           {/* OPTION 1: GENERAL */}
-          <button onClick={() => setView('general')} className="entry-btn red-hover">
-            <span className="entry-icon red-icon"><Wifi size={19} /></span>
+          <button onClick={() => setView('general')} className="entry-btn red-hover prodapt-click-btn">
+            <span className="entry-icon red-icon"><Radio size={19} /></span>
             <span>
               <strong className="entry-title-text">GENERAL</strong>
               <small className="entry-desc-text">Explore fiber plans, verify pincode availability, get smart recommendations, and book a connection.</small>
@@ -66,7 +93,7 @@ export function LandingView({ setView, theme, setTheme }) {
           </button>
 
           {/* OPTION 2: EXISTING CUSTOMERS */}
-          <button onClick={() => setView('existing')} className="entry-btn red-hover">
+          <button onClick={() => setView('existing')} className="entry-btn red-hover prodapt-click-btn">
             <span className="entry-icon dark-icon"><MessageCircle size={19} /></span>
             <span>
               <strong className="entry-title-text">EXISTING CUSTOMERS</strong>
@@ -83,4 +110,5 @@ export function LandingView({ setView, theme, setTheme }) {
     </main>
   )
 }
+
 

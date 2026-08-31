@@ -13,18 +13,16 @@ export function App() {
       <header className="topbar">
         {/* Brand Container */}
         <div className="brand brand-interactive" onClick={() => setView('landing')}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', paddingTop: '2px' }}>
-            <span className="brand-logo-text">
-              Prodapt
-            </span>
-            <svg width="12" height="12" viewBox="0 0 10 10" style={{ fill: '#E31B23', marginLeft: '2px', marginTop: '10px' }}>
-              <polygon points="0,0 10,0 10,10" />
+          <div className="prodapt-brand-logo">
+            <span className="prodapt-brand-text">Prodapt</span>
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="prodapt-mark-svg">
+              <polygon points="0,0 12,0 12,12" fill="#E31B23" />
             </svg>
           </div>
           <span className="brand-divider">|</span>
           <span className="brand-title">Signal Selector</span>
           <span className="brand-ai-badge">
-            <Sparkles size={10} /> Telecom AI
+            <Sparkles size={13} /> Telecom AI
           </span>
         </div>
 

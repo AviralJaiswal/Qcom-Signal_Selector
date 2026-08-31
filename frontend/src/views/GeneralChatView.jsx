@@ -138,17 +138,33 @@ export function GeneralChatView({ onBack }) {
 
   const handleSaveEditedCustomer = (updatedCustomer) => {
     setCustomer(updatedCustomer)
+    setMessages((prev) =>
+      prev.filter((m) => !(m.role === 'assistant' && (m.content?.includes('Contact details saved') || m.content?.includes('installation appointment slot'))))
+    )
     send('', null, { customer: updatedCustomer })
   }
 
   const submitCustomer = (e) => {
     e.preventDefault()
-    if (!customer.name.trim() || !/^\d{10}$/.test(customer.phone) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)) {
-      setError('Please enter a valid name, 10-digit phone number, and email address.')
+    const trimmedName = customer.name.trim()
+    const trimmedPhone = customer.phone.trim()
+    const trimmedEmail = customer.email.trim()
+
+    if (!trimmedName || !/^[a-zA-Z\s]+$/.test(trimmedName)) {
+      setError('Name must contain alphabets and spaces only.')
       return
     }
-    const customerMsg = `Name: ${customer.name.trim()}\nPhone: ${customer.phone.trim()}\nEmail: ${customer.email.trim()}`
-    send(customerMsg, null, { customer })
+    if (!/^\d{10}$/.test(trimmedPhone) || /^(\d)\1{9}$/.test(trimmedPhone)) {
+      setError('Please enter a valid 10-digit mobile number.')
+      return
+    }
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmedEmail)) {
+      setError('Please enter a valid email address (e.g. name@example.com).')
+      return
+    }
+    setError('')
+    const customerMsg = `Name: ${trimmedName}\nPhone: ${trimmedPhone}\nEmail: ${trimmedEmail}`
+    send(customerMsg, null, { customer: { name: trimmedName, phone: trimmedPhone, email: trimmedEmail } })
   }
 
   const today = useMemo(() => {
@@ -328,7 +344,7 @@ export function GeneralChatView({ onBack }) {
             }
 
             return (
-              <div key={index}>
+              <div key={index} className="message-animate-in">
                 <div className={`other-message ${item.role}`}>
                   <span>{item.role === 'assistant' ? <Wifi size={14} /> : 'You'}</span>
                   <div className="message-content">
