@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Check, CheckCircle2, Send, Sparkles, UserRound, Wifi } from 'lucide-react'
+import { ArrowLeft, Check, CheckCircle2, Send, Sparkles, UserRound, Wifi, Zap, Bot, ShieldCheck, Clock } from 'lucide-react'
 import { request, dateKey, loadRazorpay } from '../utils/api'
 import { FormattedText } from '../components/FormattedText'
 import { Summary } from '../components/Summary'
@@ -283,6 +283,19 @@ export function ExistingChatView({ onBack }) {
   const showCustomerForm = !isExisting && state.selected_plan && (missingCustomer.length > 0 || !state.customer)
   const availablePlans = ((state.plans_shown && state.address_qualified && state.address_confirmed) || isExisting) ? (state.catalog_plans || state.recommended_plans || []) : []
 
+  const isInOrderFlow = Boolean(
+    state.selected_plan ||
+    showCustomerForm ||
+    state.customer ||
+    state.appointment ||
+    showPaymentGateway ||
+    order ||
+    state.workflow_state === 'CUSTOMER_DETAILS' ||
+    state.workflow_state === 'APPOINTMENT' ||
+    state.workflow_state === 'PAYMENT' ||
+    state.workflow_state === 'ORDER_CONFIRMED'
+  )
+
   const slotList = useMemo(() => {
     const targetDate = chosenDate ? dateKey(chosenDate) : dateKey(today)
     const compactDate = targetDate.replaceAll('-', '')
@@ -425,6 +438,47 @@ export function ExistingChatView({ onBack }) {
         {busy && <div className="typing"><span /><span /><span /></div>}
         {error && <p className="inline-error">{error}</p>}
         <div ref={messagesEndRef} />
+      </div>
+
+      {/* Quick Suggestion Chips for Existing Customer Portal */}
+      <div className={`quick-chips-wrapper ${isInOrderFlow ? 'vanished' : ''}`}>
+        <div className="chips-title">
+          <Sparkles size={12} style={{ color: '#E31B23' }} /> Quick Actions:
+        </div>
+        <div className="chips-row">
+          <button
+            type="button"
+            className="quick-chip"
+            disabled={busy || isInOrderFlow}
+            onClick={() => send("I want to upgrade my fiber plan")}
+          >
+            <Zap size={12} /> Plan Upgrade Options
+          </button>
+          <button
+            type="button"
+            className="quick-chip"
+            disabled={busy || isInOrderFlow}
+            onClick={() => send("How to report a slow connection issue?")}
+          >
+            <Bot size={12} /> Connection Support
+          </button>
+          <button
+            type="button"
+            className="quick-chip"
+            disabled={busy || isInOrderFlow}
+            onClick={() => send("Show available add-on packs")}
+          >
+            <ShieldCheck size={12} /> Add-On Packs
+          </button>
+          <button
+            type="button"
+            className="quick-chip"
+            disabled={busy || isInOrderFlow}
+            onClick={() => send("What are the billing & renewal options?")}
+          >
+            <Clock size={12} /> Billing & Renewal
+          </button>
+        </div>
       </div>
 
       <form className="other-composer" onSubmit={submitForm}>

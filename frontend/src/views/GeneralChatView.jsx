@@ -283,6 +283,19 @@ export function GeneralChatView({ onBack }) {
   const showCustomerForm = !isExisting && state.selected_plan && (missingCustomer.length > 0 || !state.customer)
   const availablePlans = ((state.plans_shown && state.address_qualified && state.address_confirmed) || isExisting) ? (state.catalog_plans || state.recommended_plans || []) : []
 
+  const isInOrderFlow = Boolean(
+    state.selected_plan ||
+    showCustomerForm ||
+    state.customer ||
+    state.appointment ||
+    showPaymentGateway ||
+    order ||
+    state.workflow_state === 'CUSTOMER_DETAILS' ||
+    state.workflow_state === 'APPOINTMENT' ||
+    state.workflow_state === 'PAYMENT' ||
+    state.workflow_state === 'ORDER_CONFIRMED'
+  )
+
   const slotList = useMemo(() => {
     const targetDate = chosenDate ? dateKey(chosenDate) : dateKey(today)
     const compactDate = targetDate.replaceAll('-', '')
@@ -428,47 +441,45 @@ export function GeneralChatView({ onBack }) {
       </div>
 
       {/* Quick Suggestion Chips for General Section RAG Flow */}
-      {!order && !showPaymentGateway && (
-        <div className="quick-chips-wrapper">
-          <div className="chips-title">
-            <Sparkles size={12} style={{ color: '#E31B23' }} /> Quick Actions:
-          </div>
-          <div className="chips-row">
-            <button
-              type="button"
-              className="quick-chip"
-              disabled={busy}
-              onClick={() => send("Show available fiber plans")}
-            >
-              <Zap size={12} /> Show Fiber Plans
-            </button>
-            <button
-              type="button"
-              className="quick-chip"
-              disabled={busy}
-              onClick={() => send("Which plan is best for WFH and gaming?")}
-            >
-              <Bot size={12} /> Gaming & WFH Suggestion
-            </button>
-            <button
-              type="button"
-              className="quick-chip"
-              disabled={busy}
-              onClick={() => send("What is your refund policy?")}
-            >
-              <ShieldCheck size={12} /> Refund Policy
-            </button>
-            <button
-              type="button"
-              className="quick-chip"
-              disabled={busy}
-              onClick={() => send("What is the installation timeline?")}
-            >
-              <Clock size={12} /> Installation Timeline
-            </button>
-          </div>
+      <div className={`quick-chips-wrapper ${isInOrderFlow ? 'vanished' : ''}`}>
+        <div className="chips-title">
+          <Sparkles size={12} style={{ color: '#E31B23' }} /> Quick Actions:
         </div>
-      )}
+        <div className="chips-row">
+          <button
+            type="button"
+            className="quick-chip"
+            disabled={busy || isInOrderFlow}
+            onClick={() => send("Show available fiber plans")}
+          >
+            <Zap size={12} /> Show Fiber Plans
+          </button>
+          <button
+            type="button"
+            className="quick-chip"
+            disabled={busy || isInOrderFlow}
+            onClick={() => send("Which plan is best for WFH and gaming?")}
+          >
+            <Bot size={12} /> Gaming & WFH Suggestion
+          </button>
+          <button
+            type="button"
+            className="quick-chip"
+            disabled={busy || isInOrderFlow}
+            onClick={() => send("What is your refund policy?")}
+          >
+            <ShieldCheck size={12} /> Refund Policy
+          </button>
+          <button
+            type="button"
+            className="quick-chip"
+            disabled={busy || isInOrderFlow}
+            onClick={() => send("What is the installation timeline?")}
+          >
+            <Clock size={12} /> Installation Timeline
+          </button>
+        </div>
+      </div>
 
       <form className="other-composer" onSubmit={submitForm}>
         <input

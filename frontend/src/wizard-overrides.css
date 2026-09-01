@@ -511,13 +511,44 @@ footer {
 
 /* Quick Suggestion Chips Component */
 .quick-chips-wrapper {
-  padding: 10px 22px 4px !important;
+  padding: 10px 22px 8px !important;
   background: #FFFFFF !important;
   border-top: 1px solid #F3F4F6 !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 6px !important;
-  animation: slideUpFade 0.3s ease-out !important;
+  max-height: 140px !important;
+  opacity: 1 !important;
+  transform: translateY(0) scaleY(1) !important;
+  transform-origin: bottom center !important;
+  overflow: hidden !important;
+  transition: max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              padding 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              margin 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.35s ease,
+              transform 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-sizing: border-box !important;
+}
+
+.quick-chips-wrapper.vanished {
+  max-height: 0px !important;
+  opacity: 0 !important;
+  padding-top: 0px !important;
+  padding-bottom: 0px !important;
+  margin-top: 0px !important;
+  margin-bottom: 0px !important;
+  border-top-color: transparent !important;
+  transform: translateY(-12px) scaleY(0.85) !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  transition: max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              padding 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              margin 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.35s ease,
+              transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.45s step-end !important;
 }
 
 .chips-title {
@@ -555,7 +586,7 @@ footer {
   box-shadow: 0 1px 3px rgba(227, 27, 35, 0.05) !important;
 }
 
-.quick-chip:hover {
+.quick-chip:hover:not(:disabled) {
   background: #E31B23 !important;
   color: #FFFFFF !important;
   border-color: #E31B23 !important;
@@ -563,7 +594,7 @@ footer {
   box-shadow: 0 4px 12px rgba(227, 27, 35, 0.25) !important;
 }
 
-.quick-chip:active {
+.quick-chip:active:not(:disabled) {
   transform: translateY(0) scale(0.97) !important;
 }
 
@@ -572,8 +603,29 @@ footer {
   transition: transform 0.2s ease !important;
 }
 
-.quick-chip:hover svg {
+.quick-chip:hover:not(:disabled) svg {
   transform: scale(1.1) !important;
+}
+
+.dark-mode .quick-chips-wrapper {
+  background: #0F172A !important;
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark-mode .chips-title {
+  color: #64748B !important;
+}
+
+.dark-mode .quick-chip {
+  background: rgba(227, 27, 35, 0.15) !important;
+  color: #FF6B70 !important;
+  border-color: rgba(227, 27, 35, 0.3) !important;
+}
+
+.dark-mode .quick-chip:hover:not(:disabled) {
+  background: #E31B23 !important;
+  color: #FFFFFF !important;
+  border-color: #E31B23 !important;
 }
 
 /* Landing View Interactive Cards & Hero Depth Enhancements */
