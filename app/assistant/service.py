@@ -25,7 +25,7 @@ from app.services.customer_service import find_or_validate
 from app.services.order_service import create_order
 from app.services.payment_service import create_purl, confirm_payment
 from app.services.plan_service import recommend
-from app.services.welcome_service import generate_dynamic_greeting
+from app.services.welcome_service import generate_dynamic_greeting, generate_contextual_followups
 from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
@@ -198,9 +198,9 @@ Requirements:
 
 @trace
 def _generate_plans_unlocked_message(formatted_address: str, state_or_region: str, plan_count: int) -> str:
-    """Generate a dynamic LLM message announcing regional plan cards unlocked + follow-up question on next line."""
+    """Generate a dynamic LLM message announcing regional plan cards unlocked with an enthusiastic achievement tone + follow-up question on next line."""
     prompt = (
-        """Generate a two-line customer-facing message announcing that regional fiber plans are available.
+        """Generate an enthusiastic, celebratory two-line customer-facing message announcing that regional fiber plans have been discovered and unlocked.
 
 Context:
 formatted_address: {formatted_address}
@@ -211,17 +211,17 @@ plan_count: {plan_count}
 - If plan_count is 0 or missing, say "available fiber plan options" without claiming a number.
 
 Requirements:
-- Line 1 must say the available plans are listed below for the resolved region.
+- Line 1 must sound joyful, positive, and celebrate the achievement of discovering high-speed fiber coverage for their location (e.g. "Great news!", "Fantastic news!", "Awesome news! High-speed fiber plans are available for {state_or_region} listed below.").
 - Line 2 must ask: "Which plan suits you best, or would you like a recommendation?"
 - Put Line 2 on a new line.
 - Do not mention booking, payment, appointments, or customer details.
-- Maximum 30 words total.
+- Maximum 35 words total.
 - No markdown.
 """
     ).format(
         formatted_address=formatted_address or "",
-        state_or_region=state_or_region or "",
-        plan_count=plan_count,
+        state_or_region=state_or_region or "your region",
+        plan_count=plan_count or 0,
     )
     try:
         text = generate(prompt, temperature=0.7, timeout=5, max_tokens=60)
@@ -233,7 +233,7 @@ Requirements:
             return cleaned
     except Exception as exc:
         logger.warning("LLM plans unlocked message error: %s", exc)
-    return f"Great news! We have {plan_count} fantastic fiber plans for {state_or_region} listed below.\nWhich plan suits you best, or would you like a recommendation?"
+    return f"Great news! We found high-speed fiber plans available for {state_or_region} listed below.\nWhich plan suits you best, or would you like a recommendation?"
 
 
 @trace
@@ -433,8 +433,10 @@ def initialize_session(
     })
 
     welcome = generate_dynamic_greeting(profile=profile)
+    followups = generate_contextual_followups(message="", answer=welcome, profile=profile)
 
     session["welcome"] = welcome
+    session["recommended_followups"] = followups
     session.setdefault("conversation_history", []).append({"role": "assistant", "content": welcome, "kind": "welcome"})
 
     logger.info("Session initialized: session_id=%s, conversation_id=%s", session_id, conversation_id)
@@ -448,6 +450,8 @@ def initialize_session(
         "source": source,
         "status": "ACTIVE",
         "response": welcome,
+        "recommended_followups": followups,
+        "recommendedFollowups": followups,
         "mode": mode,
         "workflowState": workflow_state,
         "updatedState": updated_state,
@@ -531,6 +535,48 @@ def _extract_customer_info(text: str) -> dict:
 
 @trace
 def handle_message(
+    session_id: str,
+    message: str,
+    db: Session,
+    *,
+    language: str = "en",
+    structured_fields: dict | None = None,
+) -> dict:
+    session = session_store.get(session_id)
+    res = _handle_message_internal(
+        session_id=session_id,
+        message=message,
+        db=db,
+        language=language,
+        structured_fields=structured_fields,
+    )
+    profile = session.get("profile", "general")
+    ans = res.get("response", "")
+
+    # Limit LLM response suggestions ONLY before entering order flow
+    in_order_flow = bool(
+        session.get("pincode") or
+        session.get("address_qualified") or
+        session.get("address_confirmed") or
+        session.get("selected_plan") or
+        session.get("customer") or
+        session.get("appointment") or
+        res.get("workflowState") in ["ADDRESS_QUALIFICATION", "ADDRESS_CONFIRMATION", "PLAN_SELECTION", "CUSTOMER_DETAILS", "APPOINTMENT", "PAYMENT", "ORDER_CONFIRMED"]
+    )
+
+    if not in_order_flow:
+        followups = generate_contextual_followups(message=message, answer=ans, profile=profile)
+    else:
+        followups = []
+
+    res["recommended_followups"] = followups
+    res["recommendedFollowups"] = followups
+    session["recommended_followups"] = followups
+    return res
+
+
+@trace
+def _handle_message_internal(
     session_id: str,
     message: str,
     db: Session,
@@ -673,8 +719,8 @@ def handle_message(
             "updatedState": updated_state,
         }
 
-    # Sub-step 1: Check for invalid PIN code input
-    if _is_invalid_or_dummy_pincode(msg_strip) and re.fullmatch(r"\d+", msg_strip):
+    # Sub-step 1: Check for invalid PIN code input (only when input is a 6-digit number)
+    if len(msg_strip) == 6 and msg_strip.isdigit() and _is_invalid_or_dummy_pincode(msg_strip):
         answer = _generate_invalid_pincode_message(msg_strip)
         updated_state = state_for_response(state_from_session(session_id, session))
         return {
@@ -734,12 +780,28 @@ def handle_message(
     pincode = _extract_pincode(message) or session.get("pincode")
     street_address = session.get("street_address")
 
-    if pincode and not re.fullmatch(r"\d{6}", msg_strip):
-        if not re.search(r"\b(?:hi|hello|book|order|select|gaming|work)\b", msg_low):
+    if not re.fullmatch(r"\d{6}", msg_strip):
+        if not re.search(r"\b(?:hi|hello|book|order|select|gaming|work|speed|price|plan)\b", msg_low):
             extracted = extract_street_address_llm(msg_strip, pincode)
             if extracted:
                 street_address = extracted
                 session["street_address"] = street_address
+
+    # If street address is provided but PIN code is missing
+    if street_address and not pincode and not session.get("address_qualified"):
+        answer = f"Thank you! We received your street address at '{street_address}'. Please share the 6-digit PIN code for this location so we can check exact serviceability and fetch your regional fiber plans."
+        updated_state = state_for_response(state_from_session(session_id, session))
+        return {
+            "sessionId": session_id,
+            "conversationId": conversation_id,
+            "mode": "ORDER_FLOW",
+            "intent": "PROMPT_PINCODE",
+            "workflowState": "ADDRESS_QUALIFICATION",
+            "response": answer,
+            "sources": [],
+            "canStartNewConnection": True,
+            "updatedState": updated_state,
+        }
 
     if pincode and not session.get("address_qualified"):
         qualification_result = qualify(db, pincode, street_address)
@@ -923,11 +985,74 @@ def handle_message(
                 break
 
     if not selected_plan and plans:
+        reco_stage = session.get("recommendation_stage", 0)
+
+        if reco_stage == 1:
+            session["reco_users"] = message
+            session["recommendation_stage"] = 2
+            answer = "Got it! **Question 2 of 3:** How many devices (smartphones, laptops, smart TVs, gaming consoles) will be connected simultaneously?"
+            updated_state = state_for_response(state_from_session(session_id, session))
+            return {
+                "sessionId": session_id,
+                "conversationId": conversation_id,
+                "mode": "ORDER_FLOW",
+                "intent": "PLAN_SELECTION",
+                "workflowState": "PLAN_SELECTION",
+                "response": answer,
+                "sources": plans,
+                "canStartNewConnection": True,
+                "updatedState": updated_state,
+            }
+
+        elif reco_stage == 2:
+            session["reco_devices"] = message
+            session["recommendation_stage"] = 3
+            answer = "Great! **Question 3 of 3:** What is your primary usage requirement? (e.g., 4K Streaming & Gaming, Work From Home, or General Browsing)"
+            updated_state = state_for_response(state_from_session(session_id, session))
+            return {
+                "sessionId": session_id,
+                "conversationId": conversation_id,
+                "mode": "ORDER_FLOW",
+                "intent": "PLAN_SELECTION",
+                "workflowState": "PLAN_SELECTION",
+                "response": answer,
+                "sources": plans,
+                "canStartNewConnection": True,
+                "updatedState": updated_state,
+            }
+
+        elif reco_stage == 3:
+            session["reco_purpose"] = message
+            session["recommendation_stage"] = 0
+            u_text = session.get("reco_users", "")
+            d_text = session.get("reco_devices", "")
+            p_text = session.get("reco_purpose", "")
+
+            intro, reco_plan = recommend_plan_conversational(
+                plans, message, users_text=u_text, devices_text=d_text, purpose_text=p_text
+            )
+            session["recommended_plan"] = reco_plan
+
+            answer = f"{intro}\n\nWe recommend **{reco_plan.get('name')}** ({reco_plan.get('speed_mbps')} Mbps speed at ₹{reco_plan.get('price_inr')}/month), perfect for {u_text} users and {d_text} devices."
+
+            updated_state = state_for_response(state_from_session(session_id, session))
+            return {
+                "sessionId": session_id,
+                "conversationId": conversation_id,
+                "mode": "ORDER_FLOW",
+                "intent": "PLAN_RECOMMENDED",
+                "workflowState": "PLAN_SELECTION",
+                "response": answer,
+                "sources": plans,
+                "recommended_plan": reco_plan,
+                "canStartNewConnection": True,
+                "updatedState": updated_state,
+            }
+
         reco_intent = classify_plan_selection_intent(message)
         if reco_intent == "RECOMMENDATION_REQUEST":
             session["recommendation_stage"] = 1
-            session["recommendation_answers"] = []
-            answer = "I can help you find the best plan! Let me ask you 3 quick questions.\n\nFirst, how many users will be using the network?"
+            answer = "I would be happy to recommend the perfect plan for you! Let's answer 3 quick questions.\n\n**Question 1 of 3:** How many people will be using this connection?"
         else:
             try:
                 chunks = query_faq_collection(message, top_k=3)

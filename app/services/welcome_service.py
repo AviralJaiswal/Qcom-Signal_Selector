@@ -1,6 +1,6 @@
 import logging
 import random
-from app.assistant.llm import generate
+from app.assistant.llm import generate, generate_json
 from app.utils.trace import trace, trace_async
 
 logger = logging.getLogger(__name__)
@@ -72,6 +72,48 @@ Requirements:
     if profile == "existing":
         return "Welcome back! I am your Signal Selector assistant. How can I help with your account, plan upgrades, or technical support today?"
     return "Welcome to Signal Selector! How can I help you today? Please share your complete street address (including building/flat number, street name, area, and pincode) so we can check exact fiber availability and fetch local plans."
+
+
+@trace
+def generate_contextual_followups(
+    message: str = "",
+    answer: str = "",
+    profile: str = "general"
+) -> list[str]:
+    """Generate 3 dynamic contextual follow-up response options for the user strictly via LLM."""
+    prompt = (
+        """Generate 3 concise, highly relevant recommended user follow-up response options based on the conversation context.
+
+Context:
+profile: {profile}
+user_previous_message: {message}
+assistant_last_response: {answer}
+
+Requirements:
+- Return a JSON object with a single key "suggestions" containing an array of 3 short text strings (3 to 7 words each).
+- The suggestions MUST mix natural first-person user action statements (such as "I want a new connection", "I want to book a connection", "I need a high-speed gaming plan", "I want to upgrade my plan") alongside relevant user queries.
+- Do NOT make them all questions. Include clear intent statements like "I want to get a new fiber connection".
+- All suggestions must be generated dynamically by the LLM based on the conversation context without static keyword templates.
+- Return valid JSON only with key "suggestions".
+"""
+    ).format(
+        profile=profile,
+        message=message or "Chatbot opened / Initial Welcome",
+        answer=answer or "Welcome greeting",
+    )
+    try:
+        data = generate_json(prompt, system="Return strict JSON with suggestions array.", timeout=5)
+        if data and isinstance(data.get("suggestions"), list) and len(data["suggestions"]) > 0:
+            valid_suggestions = [str(s).strip() for s in data["suggestions"] if s and len(str(s).strip()) > 3]
+            if len(valid_suggestions) >= 2:
+                return valid_suggestions[:3]
+    except Exception as exc:
+        logger.warning("LLM follow-up suggestions generation error: %s", exc)
+
+    if profile == "existing":
+        return ["I want to upgrade my fiber plan", "Report a slow connection issue", "Show available add-on packs"]
+    return ["I want to get a new connection", "I want to book a fiber plan", "Which plan is best for gaming & WFH?"]
+
 
 
 

@@ -1,12 +1,13 @@
-import React from 'react'
-import { Radio, UserRound, CheckCircle2, ChevronRight, Pencil } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Globe, UserRound, CheckCircle2, ChevronRight, Pencil, AlertCircle } from 'lucide-react'
+import { validateCustomerEmail } from '../utils/validation'
 
 export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy }) {
-  const [isEditing, setIsEditing] = React.useState(false)
-  const [editForm, setEditForm] = React.useState({ name: custName, phone: custPhone, email: custEmail })
-  const [err, setErr] = React.useState('')
+  const [isEditing, setIsEditing] = useState(false)
+  const [editForm, setEditForm] = useState({ name: custName, phone: custPhone, email: custEmail })
+  const [err, setErr] = useState('')
 
-  React.useEffect(() => {
+  useEffect(() => {
     setEditForm({ name: custName, phone: custPhone, email: custEmail })
   }, [custName, custPhone, custEmail])
 
@@ -24,10 +25,13 @@ export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy
       setErr('Please enter a valid 10-digit mobile number.')
       return
     }
-    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmedEmail)) {
-      setErr('Please enter a valid email address (e.g. name@example.com).')
+
+    const emailVal = validateCustomerEmail(trimmedEmail)
+    if (!emailVal.isValid) {
+      setErr(emailVal.error)
       return
     }
+
     setErr('')
     setIsEditing(false)
     if (onSave) {
@@ -38,7 +42,7 @@ export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy
   if (isEditing) {
     return (
       <div className="other-message assistant" style={{ marginTop: '12px' }}>
-        <span><Radio size={14} /></span>
+        <span><Globe size={14} /></span>
         <div className="message-content customer-card-content" style={{ width: '540px', maxWidth: '100%', padding: '16px', background: '#FFFFFF', border: '2px solid #E31B23', borderRadius: '14px', boxShadow: '0 4px 14px rgba(227, 27, 35, 0.12)', boxSizing: 'border-box' }}>
           <div className="customer-form-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#B80E16', fontSize: '13px', fontWeight: '700', marginBottom: '8px' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -52,13 +56,20 @@ export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy
               Cancel
             </button>
           </div>
-          {err && <p style={{ color: '#DC2626', fontSize: '11px', margin: '0 0 8px', fontWeight: '600' }}>{err}</p>}
+          {err && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#DC2626', background: '#FEF2F2', border: '1px solid #FCA5A5', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '600', marginBottom: '10px' }}>
+              <AlertCircle size={14} style={{ flexShrink: 0 }} /> {err}
+            </div>
+          )}
           <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>Name</label>
               <input
                 value={editForm.name}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })
+                  if (err) setErr('')
+                }}
                 placeholder="Full name"
                 required
                 style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '9px 12px', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
@@ -68,7 +79,10 @@ export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy
               <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>Phone</label>
               <input
                 value={editForm.phone}
-                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                onChange={(e) => {
+                  setEditForm({ ...editForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })
+                  if (err) setErr('')
+                }}
                 placeholder="10-digit mobile number"
                 inputMode="numeric"
                 required
@@ -79,11 +93,23 @@ export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy
               <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>Email</label>
               <input
                 value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                placeholder="email@example.com"
+                onChange={(e) => {
+                  setEditForm({ ...editForm, email: e.target.value })
+                  if (err) setErr('')
+                }}
+                placeholder="Enter email address"
                 type="email"
                 required
-                style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '9px 12px', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+                style={{
+                  width: '100%',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '10px',
+                  padding: '9px 12px',
+                  fontSize: '12px',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  background: '#FFFFFF'
+                }}
               />
             </div>
             <button
@@ -117,7 +143,7 @@ export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy
 
   return (
     <div className="other-message assistant" style={{ marginTop: '12px' }}>
-      <span><Radio size={14} /></span>
+      <span><Globe size={14} /></span>
       <div className="message-content customer-card-content" style={{ width: '540px', maxWidth: '100%', padding: '16px', background: 'linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 100%)', border: '2px solid #E31B23', borderRadius: '14px', boxShadow: '0 4px 12px rgba(227, 27, 35, 0.08)', boxSizing: 'border-box' }}>
         <div className="customer-form-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#B80E16', fontSize: '13px', fontWeight: '700', marginBottom: '6px' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -170,20 +196,58 @@ export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy
 }
 
 export function CustomerFormCard({ selectedPlanName, customer, setCustomer, submitCustomer, busy }) {
+  const [localError, setLocalError] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    
+    const trimmedName = customer.name ? customer.name.trim() : ''
+    const trimmedPhone = customer.phone ? customer.phone.trim() : ''
+    const trimmedEmail = customer.email ? customer.email.trim() : ''
+
+    if (!trimmedName || !/^[a-zA-Z\s]+$/.test(trimmedName)) {
+      setLocalError('Name must contain alphabets and spaces only.')
+      return
+    }
+    if (!/^\d{10}$/.test(trimmedPhone) || /^(\d)\1{9}$/.test(trimmedPhone)) {
+      setLocalError('Please enter a valid 10-digit mobile number.')
+      return
+    }
+
+    const emailVal = validateCustomerEmail(trimmedEmail)
+    if (!emailVal.isValid) {
+      setLocalError(emailVal.error)
+      return
+    }
+
+    setLocalError('')
+    submitCustomer(e)
+  }
+
   return (
     <div className="other-message assistant" style={{ marginTop: '12px' }}>
-      <span><Radio size={14} /></span>
+      <span><Globe size={14} /></span>
       <div className="message-content customer-card-content" style={{ width: '540px', maxWidth: '100%', padding: '16px', background: '#FFFFFF', border: '2px solid #E31B23', borderRadius: '14px', boxShadow: '0 4px 12px rgba(227, 27, 35, 0.08)', boxSizing: 'border-box' }}>
         <div className="customer-form-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#B80E16', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>
           <UserRound size={15} style={{ color: '#E31B23' }} /> Customer Details for {selectedPlanName}
         </div>
         <p style={{ margin: '4px 0 12px', color: '#6b7280', fontSize: '11px' }}>Please enter your contact details to proceed with installation scheduling.</p>
-        <form onSubmit={submitCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        
+        {localError && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#DC2626', background: '#FEF2F2', border: '1px solid #FCA5A5', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '600', marginBottom: '12px' }}>
+            <AlertCircle size={14} style={{ flexShrink: 0 }} /> {localError}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '11px', fontWeight: '700', color: '#374151' }}>Name</label>
             <input
               value={customer.name}
-              onChange={(e) => setCustomer({ ...customer, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })}
+              onChange={(e) => {
+                setCustomer({ ...customer, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })
+                if (localError) setLocalError('')
+              }}
               placeholder="Full name"
               required
               style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '9px 12px', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
@@ -193,7 +257,10 @@ export function CustomerFormCard({ selectedPlanName, customer, setCustomer, subm
             <label style={{ fontSize: '11px', fontWeight: '700', color: '#374151' }}>Phone</label>
             <input
               value={customer.phone}
-              onChange={(e) => setCustomer({ ...customer, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+              onChange={(e) => {
+                setCustomer({ ...customer, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })
+                if (localError) setLocalError('')
+              }}
               placeholder="10-digit mobile number"
               inputMode="numeric"
               required
@@ -204,11 +271,23 @@ export function CustomerFormCard({ selectedPlanName, customer, setCustomer, subm
             <label style={{ fontSize: '11px', fontWeight: '700', color: '#374151' }}>Email</label>
             <input
               value={customer.email}
-              onChange={(e) => setCustomer({ ...customer, email: e.target.value })}
-              placeholder="email@example.com"
+              onChange={(e) => {
+                setCustomer({ ...customer, email: e.target.value })
+                if (localError) setLocalError('')
+              }}
+              placeholder="Enter email address"
               type="email"
               required
-              style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '9px 12px', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+              style={{
+                width: '100%',
+                border: '1px solid #e5e7eb',
+                borderRadius: '10px',
+                padding: '9px 12px',
+                fontSize: '12px',
+                outline: 'none',
+                boxSizing: 'border-box',
+                background: '#FFFFFF'
+              }}
             />
           </div>
           <button className="customer-submit red-btn" disabled={busy} style={{ width: '100%', marginTop: '6px', padding: '10px 14px', borderRadius: '10px', fontWeight: '700', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
@@ -219,5 +298,3 @@ export function CustomerFormCard({ selectedPlanName, customer, setCustomer, subm
     </div>
   )
 }
-
-

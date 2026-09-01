@@ -532,10 +532,12 @@ def _nominatim_address_lookup(street_address: str, pincode: str) -> dict | None:
 
 @trace
 def _is_invalid_or_dummy_pincode(pincode: str) -> bool:
-    """Strictly identify non-existent, dummy, or invalid Indian PIN codes."""
+    """Strictly identify non-existent, dummy, or invalid 6-digit Indian PIN codes.
+    Returns False if input is not a 6-digit string (i.e. not intended as a 6-digit pincode).
+    """
     pin = (pincode or "").strip()
     if len(pin) != 6 or not pin.isdigit():
-        return True
+        return False
     # 1. Invalid starting digits in India (Indian PIN codes start with digits 1 through 8 only)
     if pin.startswith(("0", "9")):
         return True

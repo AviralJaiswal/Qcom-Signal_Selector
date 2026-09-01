@@ -35,6 +35,7 @@ def query_rag_assistant(request: RAGQueryRequest, db: Session = Depends(get_db))
         "intent": result.get("intent", ""),
         "workflow_state": result.get("workflowState", ""),
         "recommended_plan": result.get("recommendedPlan") or result.get("recommended_plan"),
+        "recommended_followups": result.get("recommended_followups") or result.get("recommendedFollowups") or [],
         "updated_state": result.get("updatedState", {}),
     }
 

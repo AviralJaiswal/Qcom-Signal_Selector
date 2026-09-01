@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Check, ChevronRight, MessageCircle, Sparkles, Radio, Wifi, Zap, MapPin, Bot, ShieldCheck, Sun, Moon, Compass } from 'lucide-react'
+import { Check, ChevronRight, MessageCircle, Sparkles, Globe, Wifi, Zap, MapPin, Bot, ShieldCheck, Sun, Moon, Compass } from 'lucide-react'
 
 function GlitterLetterText({ text, className, isEm = false }) {
   const words = text.split(' ')
@@ -84,7 +84,7 @@ export function LandingView({ setView, theme, setTheme }) {
         <div className="entry-options">
           {/* OPTION 1: GENERAL */}
           <button onClick={() => setView('general')} className="entry-btn red-hover prodapt-click-btn">
-            <span className="entry-icon red-icon"><Radio size={19} /></span>
+            <span className="entry-icon red-icon"><MessageCircle size={19} /></span>
             <span>
               <strong className="entry-title-text">GENERAL</strong>
               <small className="entry-desc-text">Explore fiber plans, verify pincode availability, get smart recommendations, and book a connection.</small>
@@ -94,7 +94,7 @@ export function LandingView({ setView, theme, setTheme }) {
 
           {/* OPTION 2: EXISTING CUSTOMERS */}
           <button onClick={() => setView('existing')} className="entry-btn red-hover prodapt-click-btn">
-            <span className="entry-icon dark-icon"><MessageCircle size={19} /></span>
+            <span className="entry-icon dark-icon"><Globe size={19} /></span>
             <span>
               <strong className="entry-title-text">EXISTING CUSTOMERS</strong>
               <small className="entry-desc-text">Account support, connection troubleshooting, plan upgrades, and extra add-on services.</small>

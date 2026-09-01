@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Check, CheckCircle2, Send, Sparkles, UserRound, Wifi, Zap, Bot, ShieldCheck, Clock } from 'lucide-react'
+import { ArrowLeft, Check, CheckCircle2, Send, Sparkles, UserRound, Wifi, MapPin, Zap, Bot, ShieldCheck, Clock } from 'lucide-react'
 import { request, dateKey, loadRazorpay } from '../utils/api'
+import { validateCustomerEmail } from '../utils/validation'
 import { FormattedText } from '../components/FormattedText'
 import { Summary } from '../components/Summary'
 import { AppointmentPicker } from '../components/AppointmentPicker'
 import { SavedCustomerCard, CustomerFormCard } from '../components/CustomerCard'
 import { PaymentGatewayCard } from '../components/PaymentGatewayCard'
 import { RecommendedPlanCard, PlanCardGrid } from '../components/PlanCardGrid'
+import { SuggestedResponses } from '../components/SuggestedResponses'
 
 export function ExistingChatView({ onBack }) {
   const mode = "existing";
@@ -64,12 +66,15 @@ export function ExistingChatView({ onBack }) {
         (response.intent === 'PLANS_DISCOVERED' || response.workflow_state === 'PLAN_SELECTION' || response.workflowState === 'PLAN_SELECTION') &&
         rawPlans.length > 0
 
+      const followups = response.recommended_followups || response.recommendedFollowups || (response.data && (response.data.recommended_followups || response.data.recommendedFollowups)) || []
+
       setMessages((items) => {
         const alreadyHasPlans = items.some((m) => m.plans && m.plans.length > 0)
         const shouldAttachPlans = (isPlanDiscovery && !alreadyHasPlans) || (rawPlans.length > 0 && !alreadyHasPlans && (response.answer?.includes('plans for') || response.answer?.includes('plans available') || response.answer?.includes('suits you best')))
         const newAssistantMsg = {
           role: 'assistant',
           content: response.answer,
+          followups: followups,
           ...(shouldAttachPlans ? { plans: rawPlans } : {}),
           ...(response.recommended_plan ? { recommended_plan: response.recommended_plan } : {})
         }
@@ -92,10 +97,11 @@ export function ExistingChatView({ onBack }) {
   async function fetchWelcomeGreeting(sid) {
     setBusy(true)
     try {
-      const res = await request('/api/v1/assistant/welcome', { sessionId: sid, profile: 'general' })
+      const res = await request('/api/v1/assistant/welcome', { sessionId: sid, profile: 'existing' })
       const welcomeMsg = res.response || res.welcome_message || res.message
+      const followups = res.recommended_followups || res.recommendedFollowups || (res.data && (res.data.recommended_followups || res.data.recommendedFollowups)) || []
       if (welcomeMsg) {
-        setMessages([{ role: 'assistant', content: isExisting ? `📌 **Existing Customer Portal**\n\n${welcomeMsg}` : welcomeMsg }])
+        setMessages([{ role: 'assistant', content: isExisting ? `📌 **Existing Customer Portal**\n\n${welcomeMsg}` : welcomeMsg, followups: followups }])
         return
       }
     } catch (e) {
@@ -103,7 +109,7 @@ export function ExistingChatView({ onBack }) {
     } finally {
       setBusy(false)
     }
-    send('', 'general', null, sid)
+    send('', 'existing', null, sid)
   }
 
   const resetSession = () => {
@@ -158,8 +164,9 @@ export function ExistingChatView({ onBack }) {
       setError('Please enter a valid 10-digit mobile number.')
       return
     }
-    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmedEmail)) {
-      setError('Please enter a valid email address (e.g. name@example.com).')
+    const emailVal = validateCustomerEmail(trimmedEmail)
+    if (!emailVal.isValid) {
+      setError(emailVal.error)
       return
     }
     setError('')
@@ -284,12 +291,18 @@ export function ExistingChatView({ onBack }) {
   const availablePlans = ((state.plans_shown && state.address_qualified && state.address_confirmed) || isExisting) ? (state.catalog_plans || state.recommended_plans || []) : []
 
   const isInOrderFlow = Boolean(
+    state.pincode ||
+    state.address_qualified ||
+    state.address_confirmed ||
     state.selected_plan ||
     showCustomerForm ||
     state.customer ||
     state.appointment ||
     showPaymentGateway ||
     order ||
+    state.workflow_state === 'ADDRESS_QUALIFICATION' ||
+    state.workflow_state === 'ADDRESS_CONFIRMATION' ||
+    state.workflow_state === 'PLAN_SELECTION' ||
     state.workflow_state === 'CUSTOMER_DETAILS' ||
     state.workflow_state === 'APPOINTMENT' ||
     state.workflow_state === 'PAYMENT' ||
@@ -332,6 +345,7 @@ export function ExistingChatView({ onBack }) {
       <div className="other-messages">
         {(() => {
           const lastAppointmentMsgIndex = messages.findLastIndex((m) => m.role === 'assistant' && (m.content?.includes('installation appointment slot') || m.content?.includes('Contact details saved')))
+          const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant')
           return messages.map((item, index) => {
             const isHiddenUserMessage = item.role === 'user' && (item.content.startsWith('Selected plan:') || item.content.startsWith('📅 Selected Installation Slot:'))
             if (isHiddenUserMessage) return null
@@ -362,6 +376,9 @@ export function ExistingChatView({ onBack }) {
                   <span>{item.role === 'assistant' ? <Wifi size={14} /> : 'You'}</span>
                   <div className="message-content">
                     <FormattedText content={item.content} />
+                    {item.role === 'assistant' && index === lastAssistantIndex && !isInOrderFlow && (
+                      <SuggestedResponses followups={item.followups} onSelect={send} busy={busy} />
+                    )}
                     <RecommendedPlanCard
                       recommendedPlan={item.recommended_plan}
                       selectedPlan={state.selected_plan}
@@ -438,47 +455,6 @@ export function ExistingChatView({ onBack }) {
         {busy && <div className="typing"><span /><span /><span /></div>}
         {error && <p className="inline-error">{error}</p>}
         <div ref={messagesEndRef} />
-      </div>
-
-      {/* Quick Suggestion Chips for Existing Customer Portal */}
-      <div className={`quick-chips-wrapper ${isInOrderFlow ? 'vanished' : ''}`}>
-        <div className="chips-title">
-          <Sparkles size={12} style={{ color: '#E31B23' }} /> Quick Actions:
-        </div>
-        <div className="chips-row">
-          <button
-            type="button"
-            className="quick-chip"
-            disabled={busy || isInOrderFlow}
-            onClick={() => send("I want to upgrade my fiber plan")}
-          >
-            <Zap size={12} /> Plan Upgrade Options
-          </button>
-          <button
-            type="button"
-            className="quick-chip"
-            disabled={busy || isInOrderFlow}
-            onClick={() => send("How to report a slow connection issue?")}
-          >
-            <Bot size={12} /> Connection Support
-          </button>
-          <button
-            type="button"
-            className="quick-chip"
-            disabled={busy || isInOrderFlow}
-            onClick={() => send("Show available add-on packs")}
-          >
-            <ShieldCheck size={12} /> Add-On Packs
-          </button>
-          <button
-            type="button"
-            className="quick-chip"
-            disabled={busy || isInOrderFlow}
-            onClick={() => send("What are the billing & renewal options?")}
-          >
-            <Clock size={12} /> Billing & Renewal
-          </button>
-        </div>
       </div>
 
       <form className="other-composer" onSubmit={submitForm}>
