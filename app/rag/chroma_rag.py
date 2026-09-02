@@ -128,15 +128,17 @@ def query_faq_collection(query: str, top_k: int = 3) -> List[str]:
     except BaseException as exc:
         logger.warning("ChromaDB query failed: %s. Using markdown chunk fallback.", exc)
 
-    # 2. Priority check: If user query asks about plans, pricing, speeds, or available options,
+    # 2. Priority check: If user query explicitly asks about plans, pricing, speeds, or tariffs,
     # ensure the Broadband Plans chunk is included at position 0.
     plan_keywords = [
         "plan", "plans", "pricing", "price", "prices", "cost", "costs", "speed", "speeds",
-        "rate", "rates", "offer", "offers", "offering", "offerings", "available", "package",
-        "packages", "option", "options", "standard", "common", "broadband", "fiber", "fibre",
-        "tier", "tiers", "tell me"
+        "rate", "rates", "package", "packages", "tier", "tiers", "tariff", "tariffs"
     ]
-    is_plan_query = any(k in q_low for k in plan_keywords)
+    order_keywords = [
+        "buy", "book", "purchase", "subscribe", "sign up", "get a new", "want to book",
+        "i want a new", "need a new", "get connection", "new connection", "order connection"
+    ]
+    is_plan_query = any(k in q_low for k in plan_keywords) and not any(k in q_low for k in order_keywords)
     if is_plan_query:
         plan_chunk = next((c["text"] for c in all_chunks if "Broadband Plan Recommendations" in c.get("header", "") or "40 Mbps Basic Plan" in c["text"]), None)
         if plan_chunk:

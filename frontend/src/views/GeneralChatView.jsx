@@ -366,6 +366,7 @@ export function GeneralChatView({ onBack }) {
                   custEmail={cEmail}
                   onSave={handleSaveEditedCustomer}
                   busy={busy}
+                  readOnly={Boolean(state.appointment || showPaymentGateway || order)}
                 />
               )
             }

@@ -168,18 +168,25 @@ Requirements:
 @trace
 def classify_plan_selection_intent(message: str) -> str:
     """Classify user intent during plan selection into RECOMMENDATION_REQUEST or FAQ_QUESTION using LLM JSON mode."""
+    low = message.lower().strip()
+    words = set(re.findall(r"\b\w+\b", low))
+    reco_tokens = {
+        "yes", "yeah", "yep", "sure", "ok", "okay", "please", "recommend", "recommendation",
+        "best", "suggest", "suggestion", "guide", "help", "choose", "suitable", "gaming", "stream"
+    }
+    if any(w in words for w in reco_tokens) or "help me choose" in low or "yes please" in low:
+        return "RECOMMENDATION_REQUEST"
+
     prompt = """Classify the customer's message during the plan selection stage of a broadband order.
 
 Context:
 message: {message}
-- If message is empty, generic, or not clearly asking for help choosing a plan, classify it as FAQ_QUESTION.
+- If customer says "yes", "sure", "yeah", "yes please", or asks for a recommendation, classify as RECOMMENDATION_REQUEST.
+- If message is a specific question about router, pricing, installation, refund, or policy, classify as FAQ_QUESTION.
 
 Requirements:
 - Return exactly one JSON object with one key named "intent".
 - intent must be exactly one of: RECOMMENDATION_REQUEST, FAQ_QUESTION.
-- Use RECOMMENDATION_REQUEST when the customer asks which plan is best, asks for a suggestion, or describes gaming, streaming, work-from-home, users, or devices to choose a plan.
-- Use FAQ_QUESTION for pricing, installation, router, policy, offer, availability, or general follow-up questions.
-- If both intents appear, prefer RECOMMENDATION_REQUEST only when the customer explicitly asks for a recommendation.
 - Do not include markdown, code fences, explanations, or extra keys.
 - Maximum 80 characters.
 """.format(message=message)
@@ -190,9 +197,6 @@ Requirements:
     except Exception as exc:
         logger.warning("LLM plan selection intent classification error: %s", exc)
 
-    low = message.lower().strip()
-    if any(w in low for w in ["recommend", "best", "gaming", "stream", "suggest", "which plan", "help me choose", "suitable", "question"]):
-        return "RECOMMENDATION_REQUEST"
     return "FAQ_QUESTION"
 
 
@@ -278,38 +282,38 @@ Requirements:
 
 
 @trace
-def _generate_prompt_complete_address(pincode: str | None = None) -> str:
+def _generate_prompt_complete_address(pincode: str | None = None, user_message: str | None = None) -> str:
     """Generate a dynamic LLM message requesting the customer's complete street address."""
     pin_context = f" for PIN code {pincode}" if pincode else ""
+    user_context = f"\nCustomer request: '{user_message}'" if user_message else ""
     prompt = (
-        """Generate a short customer-facing message requesting the customer's complete service address.
+        """Generate a short, friendly customer-facing message for a customer wanting to order/book a new broadband connection.
 
 Context:
 pincode: {pincode}
 pin_context: {pin_context}
-- If pincode is provided, incorporate it naturally.
-- If pincode is missing, ask for a valid 6-digit PIN code as part of the complete address.
+{user_context}
 
 Requirements:
-- Request the complete address: house/flat number, street, locality, and PIN code.
-- Make clear that both complete street address and PIN code are mandatory.
-- Make clear that a PIN code alone is insufficient.
-- Say the address will be used to check fiber availability and fetch local plans through our mapping provider.
-- Do not ask for plan selection, booking, payment, or appointment details.
-- Maximum 30 words.
-- No markdown.
+- Politely acknowledge their interest in getting a new connection.
+- Request their complete street address (including house/flat number, building name, street, area/locality, and 6-digit PIN code) to check exact serviceability and local plan availability.
+- Do NOT list, mention, or dump plan names, speeds, or prices.
+- Do NOT mention booking confirmation, payment, or technician appointment slots yet.
+- Maximum 35 words.
+- No markdown formatting or bullet points.
 """
     ).format(
         pincode=pincode or "",
         pin_context=pin_context,
+        user_context=user_context,
     )
     try:
-        text = generate(prompt, temperature=0.7, timeout=5, max_tokens=65)
+        text = generate(prompt, temperature=0.7, timeout=5, max_tokens=70)
         if text and len(text.strip()) > 10:
             return text.strip()
     except Exception as exc:
         logger.warning("LLM complete address prompt error: %s", exc)
-    return "Please share your complete street address (including house/flat number, street name, locality, and pincode) so we can verify exact coverage via Mapbox and show available fiber plans."
+    return "Thank you for choosing Signal Selector! To get started with your new connection, please share your complete street address (house/flat number, street name, locality, and 6-digit pincode) so we can verify exact serviceability."
 
 
 @trace
@@ -513,6 +517,34 @@ def _is_order_intent_trigger(text: str) -> bool:
         "get fiber", "get broadband", "get a connection", "get new connection"
     )
     return any(p in low for p in order_phrases)
+
+
+@trace
+def _is_explicit_plan_search_intent(text: str) -> bool:
+    """Check if the user is explicitly searching or asking to view standard broadband plans."""
+    low = text.lower().strip()
+    plan_keywords = (
+        "what plans", "which plan", "show plans", "list plans", "available plans",
+        "standard plans", "broadband plans", "fiber plans", "what are the plans",
+        "tell me the plans", "plan details", "pricing plans", "tariffs", "plans available"
+    )
+    order_keywords = ("buy", "book", "purchase", "subscribe", "get a new", "want to book", "i want a new", "need a new", "get connection")
+    if any(p in low for p in plan_keywords) and not any(k in low for k in order_keywords):
+        return True
+    return False
+
+
+@trace
+def _is_explicit_order_booking_intent(text: str) -> bool:
+    """Check if the user is expressing intent to book, get, or order a new connection."""
+    low = text.lower().strip()
+    order_keywords = (
+        "buy", "book", "purchase", "subscribe", "sign up", "get a new", "need a new",
+        "i want a new", "want to buy", "want to book", "want to get", "check coverage",
+        "check serviceability", "new connection", "new fiber", "new fibre", "order plan",
+        "order fiber", "get fiber", "get broadband", "get a connection", "get new connection"
+    )
+    return any(k in low for k in order_keywords)
 
 
 @trace
@@ -893,8 +925,11 @@ def _handle_message_internal(
 
     # Prompt for complete address if not provided yet in Order Flow
     if not pincode or not session.get("address_qualified"):
-        # Check if user message is actually a FAQ/general question rather than an address
-        if not re.search(r"\d{6}", msg_strip) and not clean_street_address(msg_strip, pincode):
+        is_order_booking = _is_explicit_order_booking_intent(msg_strip)
+        is_plan_search = _is_explicit_plan_search_intent(msg_strip)
+
+        # Check if user message is a general FAQ question (NOT a booking request, NOT a plan dump if user didn't ask for plans)
+        if not is_order_booking and not re.search(r"\d{6}", msg_strip) and not clean_street_address(msg_strip, pincode):
             try:
                 chunks = query_faq_collection(message, top_k=3)
             except Exception as exc:
@@ -906,25 +941,31 @@ def _handle_message_internal(
                 except Exception as exc:
                     logger.warning("Order-flow FAQ synthesis failed: %s", exc)
                     faq_answer = ""
-                if not faq_answer:
-                    faq_answer = "I can help with that from our broadband FAQs."
-                if "whenever you're ready" not in faq_answer.lower() and "whenever you are ready" not in faq_answer.lower():
-                    faq_answer = faq_answer.rstrip() + " You can share your complete street address whenever you're ready."
-                answer = faq_answer
-                updated_state = state_for_response(state_from_session(session_id, session))
-                return {
-                    "sessionId": session_id,
-                    "conversationId": conversation_id,
-                    "mode": "ORDER_FLOW",
-                    "intent": "FAQ_KNOWLEDGE",
-                    "workflowState": "ADDRESS_QUALIFICATION",
-                    "response": answer,
-                    "sources": [{"type": "faq_chunk", "chunk": c} for c in chunks],
-                    "canStartNewConnection": True,
-                    "updatedState": updated_state,
-                }
 
-        answer = _generate_prompt_complete_address(pincode=pincode if session.get("requires_full_address") else None)
+                # Guardrail: If user did NOT explicitly search for plans, suppress plan dumps from FAQ RAG
+                contains_plan_dump = any(term in faq_answer.lower() for term in ["40 mbps", "100 mbps", "200 mbps", "300 mbps", "500 mbps", "1 gbps", "entertainment plan"])
+                if not is_plan_search and contains_plan_dump:
+                    faq_answer = ""
+
+                if faq_answer:
+                    if "whenever you're ready" not in faq_answer.lower() and "whenever you are ready" not in faq_answer.lower():
+                        faq_answer = faq_answer.rstrip() + " You can share your complete street address whenever you're ready."
+                    answer = faq_answer
+                    updated_state = state_for_response(state_from_session(session_id, session))
+                    return {
+                        "sessionId": session_id,
+                        "conversationId": conversation_id,
+                        "mode": "ORDER_FLOW",
+                        "intent": "FAQ_KNOWLEDGE",
+                        "workflowState": "ADDRESS_QUALIFICATION",
+                        "response": answer,
+                        "sources": [{"type": "faq_chunk", "chunk": c} for c in chunks],
+                        "canStartNewConnection": True,
+                        "updatedState": updated_state,
+                    }
+
+        # For order/booking intent OR when prompting for complete address:
+        answer = _generate_prompt_complete_address(pincode=pincode if session.get("requires_full_address") else None, user_message=msg_strip)
         updated_state = state_for_response(state_from_session(session_id, session))
         return {
             "sessionId": session_id,

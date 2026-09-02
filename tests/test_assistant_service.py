@@ -102,6 +102,13 @@ class AssistantServiceTests(unittest.TestCase):
         self.assertEqual(updated_state["catalog_plans"], [])
         self.assertEqual(updated_state["recommended_plans"], [])
 
+    def test_yes_response_triggers_recommendation_survey(self):
+        from app.assistant.service import classify_plan_selection_intent
+        self.assertEqual(classify_plan_selection_intent("yes"), "RECOMMENDATION_REQUEST")
+        self.assertEqual(classify_plan_selection_intent("yes please"), "RECOMMENDATION_REQUEST")
+        self.assertEqual(classify_plan_selection_intent("sure"), "RECOMMENDATION_REQUEST")
+        self.assertEqual(classify_plan_selection_intent("recommendation"), "RECOMMENDATION_REQUEST")
+
 
 if __name__ == "__main__":
     unittest.main()

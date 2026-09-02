@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { Globe, UserRound, CheckCircle2, ChevronRight, Pencil, AlertCircle } from 'lucide-react'
+import { UserRound, CheckCircle2, ChevronRight, Pencil, AlertCircle } from 'lucide-react'
 import { validateCustomerEmail } from '../utils/validation'
 
-export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy }) {
+export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy, readOnly }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState({ name: custName, phone: custPhone, email: custEmail })
   const [err, setErr] = useState('')
@@ -10,6 +10,12 @@ export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy
   useEffect(() => {
     setEditForm({ name: custName, phone: custPhone, email: custEmail })
   }, [custName, custPhone, custEmail])
+
+  useEffect(() => {
+    if (readOnly) {
+      setIsEditing(false)
+    }
+  }, [readOnly])
 
   const handleSave = (e) => {
     e.preventDefault()
@@ -42,7 +48,7 @@ export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy
   if (isEditing) {
     return (
       <div className="other-message assistant" style={{ marginTop: '12px' }}>
-        <span><Globe size={14} /></span>
+        <span><UserRound size={14} /></span>
         <div className="message-content customer-card-content" style={{ width: '540px', maxWidth: '100%', padding: '16px', background: '#FFFFFF', border: '2px solid #E31B23', borderRadius: '14px', boxShadow: '0 4px 14px rgba(227, 27, 35, 0.12)', boxSizing: 'border-box' }}>
           <div className="customer-form-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#B80E16', fontSize: '13px', fontWeight: '700', marginBottom: '8px' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -143,7 +149,7 @@ export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy
 
   return (
     <div className="other-message assistant" style={{ marginTop: '12px' }}>
-      <span><Globe size={14} /></span>
+      <span><UserRound size={14} /></span>
       <div className="message-content customer-card-content" style={{ width: '540px', maxWidth: '100%', padding: '16px', background: 'linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 100%)', border: '2px solid #E31B23', borderRadius: '14px', boxShadow: '0 4px 12px rgba(227, 27, 35, 0.08)', boxSizing: 'border-box' }}>
         <div className="customer-form-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#B80E16', fontSize: '13px', fontWeight: '700', marginBottom: '6px' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -153,26 +159,28 @@ export function SavedCustomerCard({ custName, custPhone, custEmail, onSave, busy
             <span style={{ background: '#FFF0F1', color: '#991B1B', border: '1px solid #FECDD3', padding: '3px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <CheckCircle2 size={13} style={{ color: '#E31B23' }} /> Saved ✓
             </span>
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              style={{
-                background: '#FFFFFF',
-                color: '#B80E16',
-                border: '1px solid #FCA5A5',
-                borderRadius: '10px',
-                padding: '3px 9px',
-                fontSize: '11px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-              }}
-            >
-              <Pencil size={11} /> Edit
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                style={{
+                  background: '#FFFFFF',
+                  color: '#B80E16',
+                  border: '1px solid #FCA5A5',
+                  borderRadius: '10px',
+                  padding: '3px 9px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}
+              >
+                <Pencil size={11} /> Edit
+              </button>
+            )}
           </div>
         </div>
         <p style={{ margin: '2px 0 10px', color: '#64748B', fontSize: '11px' }}>Your contact information has been verified and recorded.</p>
@@ -226,7 +234,7 @@ export function CustomerFormCard({ selectedPlanName, customer, setCustomer, subm
 
   return (
     <div className="other-message assistant" style={{ marginTop: '12px' }}>
-      <span><Globe size={14} /></span>
+      <span><UserRound size={14} /></span>
       <div className="message-content customer-card-content" style={{ width: '540px', maxWidth: '100%', padding: '16px', background: '#FFFFFF', border: '2px solid #E31B23', borderRadius: '14px', boxShadow: '0 4px 12px rgba(227, 27, 35, 0.08)', boxSizing: 'border-box' }}>
         <div className="customer-form-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#B80E16', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>
           <UserRound size={15} style={{ color: '#E31B23' }} /> Customer Details for {selectedPlanName}

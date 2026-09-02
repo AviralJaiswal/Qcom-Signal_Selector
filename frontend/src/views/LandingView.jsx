@@ -1,5 +1,34 @@
 import React, { useState } from 'react'
-import { Check, ChevronRight, MessageCircle, Sparkles, Globe, Wifi, Zap, MapPin, Bot, ShieldCheck, Sun, Moon, Compass } from 'lucide-react'
+import { Check, ChevronRight, MessageCircle, Sparkles, Wifi, Zap, MapPin, Bot, ShieldCheck, Sun, Moon, Compass } from 'lucide-react'
+
+// Large, Bold 3-Customer Group SVG Icon (High-Contrast & Prominently Visible)
+function UsersGroupIcon({ size = 26 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ display: 'block' }}
+    >
+      {/* --- Center Main Customer --- */}
+      <circle cx="12" cy="6" r="3" />
+      <path d="M6.5 19v-1a5.5 5.5 0 0 1 11 0v1" />
+
+      {/* --- Left Customer --- */}
+      <circle cx="5" cy="8.5" r="2.4" />
+      <path d="M1 20v-0.8a4 4 0 0 1 6-3.2" />
+
+      {/* --- Right Customer --- */}
+      <circle cx="19" cy="8.5" r="2.4" />
+      <path d="M17 16a4 4 0 0 1 6 3.2v0.8" />
+    </svg>
+  )
+}
 
 function GlitterLetterText({ text, className, isEm = false }) {
   const words = text.split(' ')
@@ -94,7 +123,7 @@ export function LandingView({ setView, theme, setTheme }) {
 
           {/* OPTION 2: EXISTING CUSTOMERS */}
           <button onClick={() => setView('existing')} className="entry-btn red-hover prodapt-click-btn">
-            <span className="entry-icon dark-icon"><Globe size={19} /></span>
+            <span className="entry-icon dark-icon"><UsersGroupIcon size={24} /></span>
             <span>
               <strong className="entry-title-text">EXISTING CUSTOMERS</strong>
               <small className="entry-desc-text">Account support, connection troubleshooting, plan upgrades, and extra add-on services.</small>
