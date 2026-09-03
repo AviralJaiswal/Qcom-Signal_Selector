@@ -9,3 +9,7 @@ frontend/dist/
 *.db
 !qcom.db
 *.sqlite
+*.pptx
+slides_preview/
+create_presentation.py
+~$*.pptx
